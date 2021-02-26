@@ -156,8 +156,9 @@ function create ()
     water = planets.create(x_water, y_water, 'water_planet');
     water.setCircle(200);
     
-    this.add.image(x_bh+20, y_bh+20, 'black_hole');
-    bh = planets.create(x_bh, y_bh);
+    this.add.image(x_bh, y_bh, 'black_hole');
+    bh = planets.create(x_bh+160, y_bh+160, 'black_hole');
+    bh.setVisible(false);
     bh.setCircle(40);
     
     //mars = this.physics.add.image(x_mars, y_mars, 'mars_planet');
