@@ -78,7 +78,14 @@ var y_water = 350;
 
 var water;
 var attraction_water = 15000000;
-    
+
+// BLACK HOLE
+var x_bh = 1400;
+var y_bh = 850;
+
+var bh;
+var attraction_bh = 40000000;
+
 var move_mode = 0;
 var on_planet;
 var double_gas_ready = false;
@@ -90,13 +97,13 @@ var landing_done = false;
 
 var game = new Phaser.Game(config);
 
-/*
 var debug_inc = 0;
 var target_angle_2;
 var robot_angle_2;
 var player_angle_2;
-*/
 
+var iter = 0;
+    
 function preload ()
 {
     
@@ -108,6 +115,7 @@ function preload ()
     this.load.image('mars_planet', 'assets/images/mars_planet_p.png');
     this.load.image('earth_planet', 'assets/images/earth_planet_p.png');
     this.load.image('water_planet', 'assets/images/water_planet_p.png');
+    this.load.image('black_hole', 'assets/images/black_hole_p.png');
     //this.load.spritesheet('dude', 'assets/images/dude.png', { frameWidth: 32, frameHeight: 48 });
     this.load.image('dude', 'assets/images/perso_v0.png');
     
@@ -120,7 +128,7 @@ function create ()
     //  A simple background for our game
     //this.add.image(400, 300, 'sky');
     //this.add.image(400, 300, 'space').setScale(1.5);
-    this.add.tileSprite(0, 0, 4000, 2000, 'space');
+    space = this.add.tileSprite(0, 0, 4000, 2000, 'space');
 
     //  The platforms group contains the ground and the 2 ledges we can jump on
     //platforms = this.physics.add.staticGroup();
@@ -148,11 +156,15 @@ function create ()
     water = planets.create(x_water, y_water, 'water_planet');
     water.setCircle(200);
     
+    this.add.image(x_bh+20, y_bh+20, 'black_hole');
+    bh = planets.create(x_bh, y_bh);
+    bh.setCircle(40);
+    
     //mars = this.physics.add.image(x_mars, y_mars, 'mars_planet');
     //mars.setCircle(100);
     
     // The player and its settings
-    player = this.physics.add.sprite(1200, 750, 'dude');
+    player = this.physics.add.sprite(1100, 300, 'dude');
 
     //  Player physics properties. Give the little guy a slight bounce.
     //player.setBounce(0.2);
@@ -226,6 +238,7 @@ function create ()
     this.physics.add.collider(player, earth, function(){move_mode = 1; on_land = true; on_planet = 'earth'});
     this.physics.add.collider(player, mars, function(){move_mode = 1; on_land = true; on_planet = 'mars'});
     this.physics.add.collider(player, water, function(){move_mode = 1; on_land = true; on_planet = 'water'});
+    this.physics.add.collider(player, bh, function(){gameOver = true; helpText.setText("Ce trou noir vous a absorbé :O"); cd_helpText = 800;});
 
     //  Checks to see if the player overlaps with any of the stars, if he does call the collectStar function
     //this.physics.add.overlap(player, stars, collectStar, null, this);
@@ -244,21 +257,29 @@ function create ()
     //this.cameras.main.setBounds(0, 0, 4000, 2000);
     //this.cameras.main.startFollow(player, true, 0.5, 0.5);
     
-    /*
-    debugText = this.add.text(16, 16,"debug", {
-        fontSize: '18px',
-        padding: { x: 10, y: 5 },
-        backgroundColor: '#000000',
-        fill: '#ffffff'
-    });
-    debugText.setScrollFactor(0);
-    */
+    if (config.physics.arcade.debug)
+    {
+        debugText = this.add.text(16, 16,"debug", {
+            fontSize: '18px',
+            padding: { x: 10, y: 5 },
+            backgroundColor: '#000000',
+            fill: '#ffffff'
+        });
+        debugText.setScrollFactor(0);
+    }
+    
 }
 
 function update ()
 {
+    space.tilePositionX = Math.cos(iter) * 2000;
+    space.tilePositionY = Math.sin(iter) * 200;
+    
+    iter += 0.0002;
+    
     if (gameOver)
     {
+        player.destroy();
         return;
     }
     
@@ -268,9 +289,11 @@ function update ()
         x_acc = -attraction_mars*(player.x-x_mars)/Math.pow((Math.pow(player.x-x_mars,2)+Math.pow(player.y-y_mars,2)),1.5);
         x_acc += -attraction_earth*(player.x-x_earth)/Math.pow((Math.pow(player.x-x_earth,2)+Math.pow(player.y-y_earth,2)),1.5);
         x_acc += -attraction_water*(player.x-x_water)/Math.pow((Math.pow(player.x-x_water,2)+Math.pow(player.y-y_water,2)),1.5);
+        x_acc += -attraction_bh*(player.x-x_bh)/Math.pow((Math.pow(player.x-x_bh,2)+Math.pow(player.y-y_bh,2)),1.5);
         y_acc = -attraction_mars*(player.y-y_mars)/Math.pow((Math.pow(player.x-x_mars,2)+Math.pow(player.y-y_mars,2)),1.5);
         y_acc += -attraction_earth*(player.y-y_earth)/Math.pow((Math.pow(player.x-x_earth,2)+Math.pow(player.y-y_earth,2)),1.5);
         y_acc += -attraction_water*(player.y-y_water)/Math.pow((Math.pow(player.x-x_water,2)+Math.pow(player.y-y_water,2)),1.5);
+        y_acc += -attraction_bh*(player.y-y_bh)/Math.pow((Math.pow(player.x-x_bh,2)+Math.pow(player.y-y_bh,2)),1.5);
         
         //Définition de la direction souhaitée du joueur :
         if (cursors.left.isDown && !cursors.up.isDown && !cursors.right.isDown && !cursors.down.isDown)
@@ -397,17 +420,24 @@ function update ()
             var difX = player.x - x_water;
             var difY = player.y - y_water;
         }
-        /*if ( Math.abs(difX) < 0.1 && difY > 0)
+        
+        if ( Math.abs(difX) < 0.1 && difY > 0)
         {
-            player.angle = 90;
+            target_angle = 90;
         }
         else if ( Math.abs(difX) < 0.1 && difY < 0)
         {
-            player.angle = -90;
+            target_angle = 270;
         }
-        else */
-        
-        if (difX > 0 && difY > 0)
+        else if ( Math.abs(difY) < 0.1 && difX > 0)
+        {
+            target_angle = 0;
+        }
+        else if ( Math.abs(difY) < 0.1 && difX < 0)
+        {
+            target_angle = 180;
+        }
+        else if (difX > 0 && difY > 0)
         {
             target_angle = 360 - 360*Math.atan(difY/difX)/(2*Math.PI);
         }
@@ -504,23 +534,25 @@ function update ()
         cd_helpText -= 1;
     }
     
-    /*
-    // Section debug
-    if (debug_inc == 0)
+    if (config.physics.arcade.debug)
     {
-        debug_inc = 1;
-        target_angle_2 = target_angle;
-        robot_angle_2 = robot_angle;
-        player_angle_2 = player.angle;
+        // Section debug
+        if (debug_inc == 0)
+        {
+            debug_inc = 1;
+            target_angle_2 = target_angle;
+            robot_angle_2 = robot_angle;
+            player_angle_2 = player.angle;
+        }
+        else
+        {
+            debug_inc = 0;
+            debugText.setText('target_angle : ' + target_angle + ' - target_angle_2 : ' + target_angle_2 +
+            '\n robot_angle : ' + robot_angle + ' - robot_angle_2 : ' + robot_angle_2 +
+            '\n player.angle : ' + player.angle + ' - player.angle_2 : ' + player_angle_2);
+        }
     }
-    else
-    {
-        debug_inc = 0;
-        debugText.setText('target_angle : ' + target_angle + ' - target_angle_2 : ' + target_angle_2 +
-        '\n robot_angle : ' + robot_angle + ' - robot_angle_2 : ' + robot_angle_2 +
-        '\n player.angle : ' + player.angle + ' - player.angle_2 : ' + player_angle_2);
-    }
-    */
+    
 }
 
 /*function doubleJumpReset (player, platform)//, doubleJumpPossible)
