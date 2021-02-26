@@ -22,7 +22,7 @@ var config = {
         default: 'arcade',
         arcade: {
             //gravity: { y: 300 },
-            debug: true
+            debug: false
         }
     },
     scene: {
@@ -90,10 +90,12 @@ var landing_done = false;
 
 var game = new Phaser.Game(config);
 
+/*
 var debug_inc = 0;
 var target_angle_2;
 var robot_angle_2;
 var player_angle_2;
+*/
 
 function preload ()
 {
@@ -150,7 +152,7 @@ function create ()
     //mars.setCircle(100);
     
     // The player and its settings
-    player = this.physics.add.sprite(800, 550, 'dude');
+    player = this.physics.add.sprite(1200, 750, 'dude');
 
     //  Player physics properties. Give the little guy a slight bounce.
     //player.setBounce(0.2);
@@ -214,7 +216,7 @@ function create ()
     
     // Indications diverses
     //helpText = this.add.text(280, 542, "C'est parti", { fontSize: '32px', fill: '#000' });
-    helpText = this.add.text(280, 542, "C'est parti !", style);
+    helpText = this.add.text(280, 742, "C'est parti !", style);
 
     //  Collide the player and the stars with the platforms
     /*this.physics.add.collider(player, platforms, doubleJumpReset, null, this);
@@ -239,9 +241,10 @@ function create ()
     
     //this.sound.setDecodedCallback(engine, start, this);
     
-    this.cameras.main.setBounds(0, 0, 4000, 2000);
-    this.cameras.main.startFollow(player, true, 0.5, 0.5);
+    //this.cameras.main.setBounds(0, 0, 4000, 2000);
+    //this.cameras.main.startFollow(player, true, 0.5, 0.5);
     
+    /*
     debugText = this.add.text(16, 16,"debug", {
         fontSize: '18px',
         padding: { x: 10, y: 5 },
@@ -249,6 +252,7 @@ function create ()
         fill: '#ffffff'
     });
     debugText.setScrollFactor(0);
+    */
 }
 
 function update ()
@@ -403,9 +407,13 @@ function update ()
         }
         else */
         
-        if (difX > 0)
+        if (difX > 0 && difY > 0)
         {
             target_angle = 360 - 360*Math.atan(difY/difX)/(2*Math.PI);
+        }
+        else if (difX > 0 && difY < 0)
+        {
+            target_angle = - 360*Math.atan(difY/difX)/(2*Math.PI);
         }
         else
         {
@@ -496,6 +504,7 @@ function update ()
         cd_helpText -= 1;
     }
     
+    /*
     // Section debug
     if (debug_inc == 0)
     {
@@ -511,7 +520,7 @@ function update ()
         '\n robot_angle : ' + robot_angle + ' - robot_angle_2 : ' + robot_angle_2 +
         '\n player.angle : ' + player.angle + ' - player.angle_2 : ' + player_angle_2);
     }
-    
+    */
 }
 
 /*function doubleJumpReset (player, platform)//, doubleJumpPossible)
