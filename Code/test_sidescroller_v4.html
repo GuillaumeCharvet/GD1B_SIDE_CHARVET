@@ -88,7 +88,7 @@ var y_bh = 850;
 var bh;
 var attraction_bh = 40000000;
 
-var move_mode = 0;
+var move_mode = 'fly';
 var on_planet;
 var double_gas_ready = false;
 
@@ -241,10 +241,10 @@ function create ()
     /*this.physics.add.collider(player, platforms, doubleJumpReset, null, this);
     this.physics.add.collider(stars, platforms);
     this.physics.add.collider(bombs, platforms);*/
-    //this.physics.add.collider(player, obstacles, function(){move_mode = 1; on_land = true; on_planet = 'earth'});
-    this.physics.add.collider(player, earth, function(){move_mode = 1; on_land = true; on_planet = 'earth'; flames.setVisible(false)});
-    this.physics.add.collider(player, mars, function(){move_mode = 1; on_land = true; on_planet = 'mars'; flames.setVisible(false)});
-    this.physics.add.collider(player, water, function(){move_mode = 1; on_land = true; on_planet = 'water'; flames.setVisible(false)});
+    //this.physics.add.collider(player, obstacles, function(){move_mode = 'run'; on_land = true; on_planet = 'earth'});
+    this.physics.add.collider(player, earth, function(){move_mode = 'run'; on_land = true; on_planet = 'earth'; flames.setVisible(false)});
+    this.physics.add.collider(player, mars, function(){move_mode = 'run'; on_land = true; on_planet = 'mars'; flames.setVisible(false)});
+    this.physics.add.collider(player, water, function(){move_mode = 'run'; on_land = true; on_planet = 'water'; flames.setVisible(false)});
     this.physics.add.collider(player, bh, function(){gameOver = true; helpText.setText("Ce trou noir vous a absorbé :O"); cd_helpText = 800; flames.setVisible(false)});
 
     //  Checks to see if the player overlaps with any of the stars, if he does call the collectStar function
@@ -290,7 +290,7 @@ function update ()
         return;
     }
     
-    if (move_mode == 0)
+    if (move_mode == 'fly')
     {
         // Le joueur est attiré par toutes les planètes 
         x_acc = -attraction_mars*(player.x-x_mars)/Math.pow((Math.pow(player.x-x_mars,2)+Math.pow(player.y-y_mars,2)),1.5);
@@ -396,7 +396,7 @@ function update ()
             engine_heat = Math.max(0, engine_heat - engine_cooling);
         }
     }
-    else if (move_mode == 1)
+    else if (move_mode == 'run')
     {
         /*switch (on_planet)
         {
@@ -525,7 +525,7 @@ function update ()
         {
             x_acc += propulsion_factor_mode_1*propulsion*Math.cos(2*Math.PI*player.angle/360);
             y_acc += propulsion_factor_mode_1*propulsion*Math.sin(2*Math.PI*player.angle/360);
-            move_mode = 0;
+            move_mode = 'fly';
             landing_done = false;
             robot_angle = -player.angle;
             target_angle = -player.angle;
