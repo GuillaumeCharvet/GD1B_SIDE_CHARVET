@@ -35,20 +35,16 @@ var config = {
 var style = { font: "40px Arial", fill: "#52bace", align: "center" };
 var cd_helpText = 60;
 
+var cursors;
+    
+var gameOver = false;
+
+// PLAYER
 var player;
+var hp_player = 100;
 var x_0 = 1100;
 var y_0 = 300;
-/*var stars;
-var bombs;
-var platforms;*/
-var cursors;
-//var score = 0;
-var gameOver = false;
-//var scoreText;
-//var doubleJumpPossible = true;
-//var sautGauche = false;
-//var sautDroit = false;
-
+var player_radius = 50
 var propulsion = 1000;
 var engine_heat = 0;
 var engine_cooling = 0.15;
@@ -108,45 +104,20 @@ var iter = 0;
     
 function preload ()
 {
-    
-    //this.load.image('sky', 'assets/images/sky.png');
     this.load.image('space', 'assets/images/bg_space.jpg');
-    //this.load.image('ground', 'assets/images/platform.png');
-    //this.load.image('star', 'assets/images/star.png');
-    //this.load.image('bomb', 'assets/images/bomb.png');
     this.load.image('mars_planet', 'assets/images/mars_planet_p.png');
     this.load.image('earth_planet', 'assets/images/earth_planet_p.png');
     this.load.image('water_planet', 'assets/images/water_planet_p.png');
     this.load.image('black_hole', 'assets/images/black_hole_p.png');
-    //this.load.spritesheet('dude', 'assets/images/dude.png', { frameWidth: 32, frameHeight: 48 });
     this.load.image('dude', 'assets/images/perso_v0.png');
     this.load.image('flames', 'assets/images/flames_p.png');
-    
-    //this.load.audio('engine', 'assets/audio/spaceEngineLarge_002.ogg');
+
     this.load.audio('engine', 'assets/audio/explosion.mp3');
 }
 
 function create ()
 {
-    //  A simple background for our game
-    //this.add.image(400, 300, 'sky');
-    //this.add.image(400, 300, 'space').setScale(1.5);
     space = this.add.tileSprite(0, 0, 4000, 2000, 'space');
-
-    //  The platforms group contains the ground and the 2 ledges we can jump on
-    //platforms = this.physics.add.staticGroup();
-
-    //  Here we create the ground.
-    //  Scale it to fit the width of the game (the original sprite is 400x32 in size)
-    //platforms.create(400, 568, 'ground').setScale(2).refreshBody();
-
-    //  Now let's create some ledges
-    //platforms.create(600, 400, 'ground');
-
-    //mars = this.physics.add.sprite(x_mars, y_mars, 'mars_planet').setScale(0.3);
-    
-    /*mars = this.physics.add.staticGroup();
-    mars.create(x_mars, y_mars, 'mars_planet').setScale(0.4);*/
     
     planets = this.physics.add.staticGroup();
     
@@ -167,17 +138,13 @@ function create ()
     flames = this.add.image(x_0, y_0, 'flames');
     flames.setVisible(false);
     
-    //mars = this.physics.add.image(x_mars, y_mars, 'mars_planet');
-    //mars.setCircle(100);
-    
     // The player and its settings
     player = this.physics.add.sprite(x_0, y_0, 'dude');
 
-    //  Player physics properties. Give the little guy a slight bounce.
-    //player.setBounce(0.2);
+    //  Player physics properties.
     player.setCollideWorldBounds(true);
     
-    player.setCircle(50);
+    player.setCircle(player_radius);
 
     //  Our player animations, turning, walking left and walking right.
     this.anims.create({
@@ -207,52 +174,17 @@ function create ()
         repeat: -1
     });
     
-    
     //  Input Events
-    //cursors = this.input.keyboard.createCursorKeys();
-    
     cursors = this.input.keyboard.addKeys({ 'up': Phaser.Input.Keyboard.KeyCodes.Z, 'left': Phaser.Input.Keyboard.KeyCodes.Q, 'right': Phaser.Input.Keyboard.KeyCodes.D, 'down': Phaser.Input.Keyboard.KeyCodes.S,'gas': Phaser.Input.Keyboard.KeyCodes.SPACE});
     
-    
-    //  Some stars to collect, 12 in total, evenly spaced 70 pixels apart along the x axis
-    /*stars = this.physics.add.group({
-        key: 'star',
-        repeat: 11,
-        setXY: { x: 12, y: 0, stepX: 70 }
-    });*/
-
-    /*stars.children.iterate(function (child) {
-
-        //  Give each star a slightly different bounce
-        child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
-
-    });*/
-
-    //bombs = this.physics.add.group();
-
-    //  The score
-    //scoreText = this.add.text(16, 16, 'score: 0', { fontSize: '32px', fill: '#000' });
-    
     // Indications diverses
-    //helpText = this.add.text(280, 542, "C'est parti", { fontSize: '32px', fill: '#000' });
     helpText = this.add.text(800, 800, "C'est parti !", style);
 
     //  Collide the player and the stars with the platforms
-    /*this.physics.add.collider(player, platforms, doubleJumpReset, null, this);
-    this.physics.add.collider(stars, platforms);
-    this.physics.add.collider(bombs, platforms);*/
-    //this.physics.add.collider(player, obstacles, function(){move_mode = 'run'; on_land = true; on_planet = 'earth'});
     this.physics.add.collider(player, earth, function(){move_mode = 'run'; on_land = true; on_planet = 'earth'; flames.setVisible(false)});
     this.physics.add.collider(player, mars, function(){move_mode = 'run'; on_land = true; on_planet = 'mars'; flames.setVisible(false)});
     this.physics.add.collider(player, water, function(){move_mode = 'run'; on_land = true; on_planet = 'water'; flames.setVisible(false)});
     this.physics.add.collider(player, bh, function(){gameOver = true; helpText.setText("Ce trou noir vous a absorbé :O"); cd_helpText = 800; flames.setVisible(false)});
-
-    //  Checks to see if the player overlaps with any of the stars, if he does call the collectStar function
-    //this.physics.add.overlap(player, stars, collectStar, null, this);
-
-    //this.physics.add.collider(player, bombs, hitBomb, null, this);
-    
-    //up = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
     
     // ********* SOUNDS *********
     
@@ -261,8 +193,8 @@ function create ()
     
     //this.sound.setDecodedCallback(engine, start, this);
     
-    //this.cameras.main.setBounds(0, 0, 4000, 2000);
-    //this.cameras.main.startFollow(player, true, 0.5, 0.5);
+    this.cameras.main.setBounds(0, 0, 3000, 1500);
+    this.cameras.main.startFollow(player, true, 0.5, 0.5);
     
     if (config.physics.arcade.debug)
     {
@@ -361,10 +293,6 @@ function update ()
                 player.angle += 2.5;
             }
         }
-        /*else
-        {
-            //player.anims.play('turn', true);
-        }*/
 
         if (cursors.gas.isDown)
         {
@@ -386,6 +314,7 @@ function update ()
             else
             {
                 helpText.setText("Moteur en surchauffe !");
+                flames.setVisible(false);
                 cd_helpText = 80;
             }
         }
@@ -398,19 +327,6 @@ function update ()
     }
     else if (move_mode == 'run')
     {
-        /*switch (on_planet)
-        {
-            case 'earth':
-                x_acc = -attraction_earth*(player.x-x_earth)/Math.pow((Math.pow(player.x-x_earth,2)+Math.pow(player.y-y_earth,2)),1.5);
-                y_acc = -attraction_earth*(player.y-y_earth)/Math.pow((Math.pow(player.x-x_earth,2)+Math.pow(player.y-y_earth,2)),1.5);
-                var difX = player.x - x_earth;
-                var difY = player.y - y_earth;
-            case 'mars':
-                x_acc = -attraction_mars*(player.x-x_mars)/Math.pow((Math.pow(player.x-x_mars,2)+Math.pow(player.y-y_mars,2)),1.5);
-                y_acc = -attraction_mars*(player.y-y_mars)/Math.pow((Math.pow(player.x-x_mars,2)+Math.pow(player.y-y_mars,2)),1.5);
-                var difX = player.x - x_mars;
-                var difY = player.y - y_mars;
-        }*/
         if (on_planet == 'earth')
         {
             x_acc = -attraction_earth*(player.x-x_earth)/Math.pow((Math.pow(player.x-x_earth,2)+Math.pow(player.y-y_earth,2)),1.5);
@@ -530,11 +446,30 @@ function update ()
             robot_angle = -player.angle;
             target_angle = -player.angle;
         }
-        
     }
     
     player.setAccelerationX(x_acc);
     player.setAccelerationY(y_acc);
+    
+    /*
+    if (player.x >= config.height + player_radius)
+    {
+        player.x = 0;
+    }
+    else if (player.x <= 0 + player_radius)
+    {
+        player.x = config.height;
+    }
+    
+    if (player.y >= config.width + player_radius)
+    {
+        player.y = 0;
+    }
+    else if (player.y <= 0 + player_radius)
+    {
+        player.y = config.width;
+    }
+    */
     
     // Gestion de la disparition du texte d'aide
     if (cd_helpText == 0)
@@ -564,55 +499,7 @@ function update ()
             '\n player.angle : ' + player.angle + ' - player.angle_2 : ' + player_angle_2);
         }
     }
-    
 }
-
-/*function doubleJumpReset (player, platform)//, doubleJumpPossible)
-{
-    if (player.body.touching.down)
-    {   
-        doubleJumpPossible = true;
-    }
-}
-
-function collectStar (player, star)
-{
-    star.disableBody(true, true);
-
-    //  Add and update the score
-    score += 10;
-    scoreText.setText('Score: ' + score);
-
-    if (stars.countActive(true) === 0)
-    {
-        //  A new batch of stars to collect
-        stars.children.iterate(function (child) {
-
-            child.enableBody(true, child.x, 0, true, true);
-
-        });
-
-        var x = (player.x < 400) ? Phaser.Math.Between(400, 800) : Phaser.Math.Between(0, 400);
-
-        var bomb = bombs.create(x, 16, 'bomb');
-        bomb.setBounce(1);
-        bomb.setCollideWorldBounds(true);
-        bomb.setVelocity(Phaser.Math.Between(-200, 200), 20);
-        bomb.allowGravity = false;
-
-    }
-}
-
-function hitBomb (player, bomb)
-{
-    this.physics.pause();
-
-    player.setTint(0xff0000);
-
-    player.anims.play('turn');
-
-    gameOver = true;
-}*/
 
 </script>
 
