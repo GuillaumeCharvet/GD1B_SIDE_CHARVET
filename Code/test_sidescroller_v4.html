@@ -120,6 +120,14 @@ function preload ()
 
 function create ()
 {
+    hp_player = 100;
+    robot_angle = 0;
+    target_angle = 0;
+    cd_helpText = 60;
+    engine_heat = 0;
+    move_mode = 'fly';
+    gameOver = false;
+    
     space = this.add.tileSprite(0, 0, 4000, 2000, 'space');
     
     planets = this.physics.add.staticGroup();
@@ -178,7 +186,7 @@ function create ()
     });
     
     //  Input Events
-    cursors = this.input.keyboard.addKeys({ 'up': Phaser.Input.Keyboard.KeyCodes.Z, 'left': Phaser.Input.Keyboard.KeyCodes.Q, 'right': Phaser.Input.Keyboard.KeyCodes.D, 'down': Phaser.Input.Keyboard.KeyCodes.S,'gas': Phaser.Input.Keyboard.KeyCodes.SPACE});
+    cursors = this.input.keyboard.addKeys({ 'up': Phaser.Input.Keyboard.KeyCodes.Z, 'left': Phaser.Input.Keyboard.KeyCodes.Q, 'right': Phaser.Input.Keyboard.KeyCodes.D, 'down': Phaser.Input.Keyboard.KeyCodes.S,'gas': Phaser.Input.Keyboard.KeyCodes.SPACE, 'restart': Phaser.Input.Keyboard.KeyCodes.R, 'abandon': Phaser.Input.Keyboard.KeyCodes.A});
     
     // Indications diverses
     helpText = this.add.text(800, 800, "C'est parti !", style);
@@ -232,292 +240,312 @@ function update ()
     
     if (hp_player <= 0){gameOver=true;}
     
+    if (cursors.restart.isDown)
+    {
+        this.registry.destroy(); // destroy registry
+        this.events.off(); // disable all active events
+        this.scene.restart(); // restart current scene
+    }
+    
+    if (cursors.abandon.isDown)
+    {
+        this.registry.destroy(); // destroy registry
+        this.events.off(); // disable all active events
+        this.scene.stop(); // restart current scene
+    }
+    
     if (gameOver)
     {
-        flames.setVisible(false)
-        player.destroy();
-        return;
-    }
-    
-    if (move_mode == 'fly')
-    {
-        // Le joueur est attiré par toutes les planètes 
-        x_acc = -attraction_mars*(player.x-x_mars)/Math.pow((Math.pow(player.x-x_mars,2)+Math.pow(player.y-y_mars,2)),1.5);
-        x_acc += -attraction_earth*(player.x-x_earth)/Math.pow((Math.pow(player.x-x_earth,2)+Math.pow(player.y-y_earth,2)),1.5);
-        x_acc += -attraction_water*(player.x-x_water)/Math.pow((Math.pow(player.x-x_water,2)+Math.pow(player.y-y_water,2)),1.5);
-        x_acc += -attraction_bh*(player.x-x_bh)/Math.pow((Math.pow(player.x-x_bh,2)+Math.pow(player.y-y_bh,2)),1.5);
-        y_acc = -attraction_mars*(player.y-y_mars)/Math.pow((Math.pow(player.x-x_mars,2)+Math.pow(player.y-y_mars,2)),1.5);
-        y_acc += -attraction_earth*(player.y-y_earth)/Math.pow((Math.pow(player.x-x_earth,2)+Math.pow(player.y-y_earth,2)),1.5);
-        y_acc += -attraction_water*(player.y-y_water)/Math.pow((Math.pow(player.x-x_water,2)+Math.pow(player.y-y_water,2)),1.5);
-        y_acc += -attraction_bh*(player.y-y_bh)/Math.pow((Math.pow(player.x-x_bh,2)+Math.pow(player.y-y_bh,2)),1.5);
-        
-        //Définition de la direction souhaitée du joueur :
-        if (cursors.left.isDown && !cursors.up.isDown && !cursors.right.isDown && !cursors.down.isDown)
-        {
-            target_angle = 180;
-        }
-        else if (!cursors.left.isDown && cursors.up.isDown && !cursors.right.isDown && !cursors.down.isDown)
-        {
-            target_angle = 90;
-        }    
-        else if (!cursors.left.isDown && !cursors.up.isDown && cursors.right.isDown && !cursors.down.isDown)
-        {
-            target_angle = 0;
-        }   
-        else if (!cursors.left.isDown && !cursors.up.isDown && !cursors.right.isDown && cursors.down.isDown)
-        {
-            target_angle = 270;
-        }
-        else if (cursors.left.isDown && cursors.up.isDown && !cursors.right.isDown && !cursors.down.isDown)
-        {
-            target_angle = 135;
-        }
-        else if (!cursors.left.isDown && cursors.up.isDown && cursors.right.isDown && !cursors.down.isDown)
-        {
-            target_angle = 45;
-        }
-        else if (!cursors.left.isDown && !cursors.up.isDown && cursors.right.isDown && cursors.down.isDown)
-        {
-            target_angle = 315;
-        }
-        else if (cursors.left.isDown && !cursors.up.isDown && !cursors.right.isDown && cursors.down.isDown)
-        {
-            target_angle = 225;
-        }
-
-        // Gestion de la rotation du joueur pour atteindre la direction souhaitée :
-        // on tourne le joueur jusqu'à l'atteindre en utilisant le sens de rotation qui minimise la durée de rotation.
-        if (Math.abs(target_angle - robot_angle) > limit_angle)
-        {
-            if (((0 <= target_angle - robot_angle) && (target_angle - robot_angle < 180)) || target_angle - robot_angle < -180)
-            {
-                //player.anims.play('right', true);
-                robot_angle += 2.5;
-                if (robot_angle >= 360)
-                {
-                    robot_angle -= 360
-                }
-                player.angle -= 2.5;
-            }
-            else
-            {
-                //player.anims.play('left', true);
-                robot_angle -= 2.5;
-                if (robot_angle < 0)
-                {
-                    robot_angle += 360
-                }
-                player.angle += 2.5;
-            }
-        }
-
-        if (cursors.gas.isDown)
-        {
-            // Le moteur ne peut être utilisé que s'il n'est pas en surchauffe
-            if (engine_heat < 80)
-            {
-                // On modifie l'accélération à chaque frame en fonction de sa direction de propulsion et de sa position par rapport
-                // aux différents astres attracteurs et objets répulseurs en utilisant des forces de type (Constante/Distance^2)
-                x_acc += propulsion * Math.cos(2*Math.PI*robot_angle/360);
-                y_acc += - propulsion * Math.sin(2*Math.PI*robot_angle/360);
-                // Le moteur se réchauffe lorsqu'il est utilisé, et il émet un son
-                engine_heat += 1;
-                flames.x = player.x - 75*Math.cos(2*Math.PI*player.angle/360);
-                flames.y = player.y - 75*Math.sin(2*Math.PI*player.angle/360);
-                flames.angle = player.angle - 90;
-                flames.setVisible(true);
-                engine.play();
-            }
-            else
-            {
-                helpText.setText("Moteur en surchauffe !");
-                flames.setVisible(false);
-                cd_helpText = 80;
-            }
-        }
-        else
-        {
-            // Le moteur se refroidit lorsqu'il n'est pas utilisé
-            flames.setVisible(false);
-            engine_heat = Math.max(0, engine_heat - engine_cooling);
-        }
-    }
-    else if (move_mode == 'run')
-    {
-        if (on_planet == 'earth')
-        {
-            x_acc = -attraction_earth*(player.x-x_earth)/Math.pow((Math.pow(player.x-x_earth,2)+Math.pow(player.y-y_earth,2)),1.5);
-            y_acc = -attraction_earth*(player.y-y_earth)/Math.pow((Math.pow(player.x-x_earth,2)+Math.pow(player.y-y_earth,2)),1.5);
-            var difX = player.x - x_earth;
-            var difY = player.y - y_earth;
-        }
-        else if (on_planet == 'mars')
-        {
-            x_acc = -attraction_mars*(player.x-x_mars)/Math.pow((Math.pow(player.x-x_mars,2)+Math.pow(player.y-y_mars,2)),1.5);
-            y_acc = -attraction_mars*(player.y-y_mars)/Math.pow((Math.pow(player.x-x_mars,2)+Math.pow(player.y-y_mars,2)),1.5);
-            var difX = player.x - x_mars;
-            var difY = player.y - y_mars;
-        }
-        else if (on_planet == 'water')
-        {
-            x_acc = -attraction_water*(player.x-x_water)/Math.pow((Math.pow(player.x-x_water,2)+Math.pow(player.y-y_water,2)),1.5);
-            y_acc = -attraction_water*(player.y-y_water)/Math.pow((Math.pow(player.x-x_water,2)+Math.pow(player.y-y_water,2)),1.5);
-            var difX = player.x - x_water;
-            var difY = player.y - y_water;
-        }
-        
-        if ( Math.abs(difX) < 0.1 && difY > 0)
-        {
-            target_angle = 90;
-        }
-        else if ( Math.abs(difX) < 0.1 && difY < 0)
-        {
-            target_angle = 270;
-        }
-        else if ( Math.abs(difY) < 0.1 && difX > 0)
-        {
-            target_angle = 0;
-        }
-        else if ( Math.abs(difY) < 0.1 && difX < 0)
-        {
-            target_angle = 180;
-        }
-        else if (difX > 0 && difY > 0)
-        {
-            target_angle = 360 - 360*Math.atan(difY/difX)/(2*Math.PI);
-        }
-        else if (difX > 0 && difY < 0)
-        {
-            target_angle = - 360*Math.atan(difY/difX)/(2*Math.PI);
-        }
-        else
-        {
-            target_angle = 180 - 360*Math.atan(difY/difX)/(2*Math.PI);
-        }
-        
-        if (Math.abs(target_angle - robot_angle) > limit_angle)
-        {
-            if (((0 <= target_angle - robot_angle) && (target_angle - robot_angle < 180)) || target_angle - robot_angle < -180)
-            {
-                //player.anims.play('right', true);
-                robot_angle += 1.25;
-                if (robot_angle >= 360)
-                {
-                    robot_angle -= 360
-                }
-                player.angle -= 1.25;
-            }
-            else
-            {
-                //player.anims.play('left', true);
-                robot_angle -= 1.25;
-                if (robot_angle < 0)
-                {
-                    robot_angle += 360
-                }
-                player.angle += 1.25;
-            }
-        }
-        else
-        {
-            landing_done = true;
-            engine_heat = Math.max(0, engine_heat - 20);
-        }
-        
-        if (cursors.left.isDown && on_land && landing_done)
-        {
-            /*if (on_obstacle)
-            {
-                x_acc += 500*Math.cos(2*Math.PI*(player.angle-90)/360);
-                y_acc += 500*Math.sin(2*Math.PI*(player.angle-90)/360);                    
-            }
-            else
-            {*/
-            x_acc += propulsion_factor_mode_1*propulsion*Math.cos(2*Math.PI*(player.angle-90)/360);
-            y_acc += propulsion_factor_mode_1*propulsion*Math.sin(2*Math.PI*(player.angle-90)/360);
-            
-        }
-        else if (cursors.right.isDown && on_land && landing_done)
-        {
-            x_acc += propulsion_factor_mode_1*propulsion*Math.cos(2*Math.PI*(player.angle+90)/360);
-            y_acc += propulsion_factor_mode_1*propulsion*Math.sin(2*Math.PI*(player.angle+90)/360);
-        }
-        
-        if (cursors.gas.isDown && on_land && landing_done)
-        {
-            x_acc += propulsion_factor_mode_1*propulsion*Math.cos(2*Math.PI*player.angle/360);
-            y_acc += propulsion_factor_mode_1*propulsion*Math.sin(2*Math.PI*player.angle/360);
-            on_land = false;
-            double_gas_ready = false;
-        }
-        else if (!cursors.gas.isDown)
-        {
-            double_gas_ready = true;
-        }
-        else if (cursors.gas.isDown && !on_land && double_gas_ready)
-        {
-            x_acc += propulsion_factor_mode_1*propulsion*Math.cos(2*Math.PI*player.angle/360);
-            y_acc += propulsion_factor_mode_1*propulsion*Math.sin(2*Math.PI*player.angle/360);
-            move_mode = 'fly';
-            landing_done = false;
-            robot_angle = -player.angle;
-            target_angle = -player.angle;
-        }
-    }
-    
-    player.setAccelerationX(x_acc);
-    player.setAccelerationY(y_acc);
-    
-    /*
-    if (player.x >= config.height + player_radius)
-    {
-        player.x = 0;
-    }
-    else if (player.x <= 0 + player_radius)
-    {
-        player.x = config.height;
-    }
-    
-    if (player.y >= config.width + player_radius)
-    {
-        player.y = 0;
-    }
-    else if (player.y <= 0 + player_radius)
-    {
-        player.y = config.width;
-    }
-    */
-    
-    // Gestion de la disparition du texte d'aide
-    if (cd_helpText == 0)
-    {
-        helpText.setText("");
+        this.physics.pause();
+        player.setTint(0x00f040);
+        helpText.setText("Relancer (r) ou abandonner (a) ?");
+        cd_helpText = 60000;
+        //flames.setVisible(false)
+        //player.destroy();
+        //return;
     }
     else
     {
-        cd_helpText -= 1;
-    }
-    
-    if (config.physics.arcade.debug)
-    {
-        // Section debug
-        if (debug_inc == 0)
+        if (move_mode == 'fly')
         {
-            debug_inc = 1;
-            target_angle_2 = target_angle;
-            robot_angle_2 = robot_angle;
-            player_angle_2 = player.angle;
+            // Le joueur est attiré par toutes les planètes 
+            x_acc = -attraction_mars*(player.x-x_mars)/Math.pow((Math.pow(player.x-x_mars,2)+Math.pow(player.y-y_mars,2)),1.5);
+            x_acc += -attraction_earth*(player.x-x_earth)/Math.pow((Math.pow(player.x-x_earth,2)+Math.pow(player.y-y_earth,2)),1.5);
+            x_acc += -attraction_water*(player.x-x_water)/Math.pow((Math.pow(player.x-x_water,2)+Math.pow(player.y-y_water,2)),1.5);
+            x_acc += -attraction_bh*(player.x-x_bh)/Math.pow((Math.pow(player.x-x_bh,2)+Math.pow(player.y-y_bh,2)),1.5);
+            y_acc = -attraction_mars*(player.y-y_mars)/Math.pow((Math.pow(player.x-x_mars,2)+Math.pow(player.y-y_mars,2)),1.5);
+            y_acc += -attraction_earth*(player.y-y_earth)/Math.pow((Math.pow(player.x-x_earth,2)+Math.pow(player.y-y_earth,2)),1.5);
+            y_acc += -attraction_water*(player.y-y_water)/Math.pow((Math.pow(player.x-x_water,2)+Math.pow(player.y-y_water,2)),1.5);
+            y_acc += -attraction_bh*(player.y-y_bh)/Math.pow((Math.pow(player.x-x_bh,2)+Math.pow(player.y-y_bh,2)),1.5);
+
+            //Définition de la direction souhaitée du joueur :
+            if (cursors.left.isDown && !cursors.up.isDown && !cursors.right.isDown && !cursors.down.isDown)
+            {
+                target_angle = 180;
+            }
+            else if (!cursors.left.isDown && cursors.up.isDown && !cursors.right.isDown && !cursors.down.isDown)
+            {
+                target_angle = 90;
+            }    
+            else if (!cursors.left.isDown && !cursors.up.isDown && cursors.right.isDown && !cursors.down.isDown)
+            {
+                target_angle = 0;
+            }   
+            else if (!cursors.left.isDown && !cursors.up.isDown && !cursors.right.isDown && cursors.down.isDown)
+            {
+                target_angle = 270;
+            }
+            else if (cursors.left.isDown && cursors.up.isDown && !cursors.right.isDown && !cursors.down.isDown)
+            {
+                target_angle = 135;
+            }
+            else if (!cursors.left.isDown && cursors.up.isDown && cursors.right.isDown && !cursors.down.isDown)
+            {
+                target_angle = 45;
+            }
+            else if (!cursors.left.isDown && !cursors.up.isDown && cursors.right.isDown && cursors.down.isDown)
+            {
+                target_angle = 315;
+            }
+            else if (cursors.left.isDown && !cursors.up.isDown && !cursors.right.isDown && cursors.down.isDown)
+            {
+                target_angle = 225;
+            }
+
+            // Gestion de la rotation du joueur pour atteindre la direction souhaitée :
+            // on tourne le joueur jusqu'à l'atteindre en utilisant le sens de rotation qui minimise la durée de rotation.
+            if (Math.abs(target_angle - robot_angle) > limit_angle)
+            {
+                if (((0 <= target_angle - robot_angle) && (target_angle - robot_angle < 180)) || target_angle - robot_angle < -180)
+                {
+                    //player.anims.play('right', true);
+                    robot_angle += 2.5;
+                    if (robot_angle >= 360)
+                    {
+                        robot_angle -= 360
+                    }
+                    player.angle -= 2.5;
+                }
+                else
+                {
+                    //player.anims.play('left', true);
+                    robot_angle -= 2.5;
+                    if (robot_angle < 0)
+                    {
+                        robot_angle += 360
+                    }
+                    player.angle += 2.5;
+                }
+            }
+
+            if (cursors.gas.isDown)
+            {
+                // Le moteur ne peut être utilisé que s'il n'est pas en surchauffe
+                if (engine_heat < 80)
+                {
+                    // On modifie l'accélération à chaque frame en fonction de sa direction de propulsion et de sa position par rapport
+                    // aux différents astres attracteurs et objets répulseurs en utilisant des forces de type (Constante/Distance^2)
+                    x_acc += propulsion * Math.cos(2*Math.PI*robot_angle/360);
+                    y_acc += - propulsion * Math.sin(2*Math.PI*robot_angle/360);
+                    // Le moteur se réchauffe lorsqu'il est utilisé, et il émet un son
+                    engine_heat += 1;
+                    flames.x = player.x - 75*Math.cos(2*Math.PI*player.angle/360);
+                    flames.y = player.y - 75*Math.sin(2*Math.PI*player.angle/360);
+                    flames.angle = player.angle - 90;
+                    flames.setVisible(true);
+                    engine.play();
+                }
+                else
+                {
+                    helpText.setText("Moteur en surchauffe !");
+                    flames.setVisible(false);
+                    cd_helpText = 80;
+                }
+            }
+            else
+            {
+                // Le moteur se refroidit lorsqu'il n'est pas utilisé
+                flames.setVisible(false);
+                engine_heat = Math.max(0, engine_heat - engine_cooling);
+            }
+        }
+        else if (move_mode == 'run')
+        {
+            if (on_planet == 'earth')
+            {
+                x_acc = -attraction_earth*(player.x-x_earth)/Math.pow((Math.pow(player.x-x_earth,2)+Math.pow(player.y-y_earth,2)),1.5);
+                y_acc = -attraction_earth*(player.y-y_earth)/Math.pow((Math.pow(player.x-x_earth,2)+Math.pow(player.y-y_earth,2)),1.5);
+                var difX = player.x - x_earth;
+                var difY = player.y - y_earth;
+            }
+            else if (on_planet == 'mars')
+            {
+                x_acc = -attraction_mars*(player.x-x_mars)/Math.pow((Math.pow(player.x-x_mars,2)+Math.pow(player.y-y_mars,2)),1.5);
+                y_acc = -attraction_mars*(player.y-y_mars)/Math.pow((Math.pow(player.x-x_mars,2)+Math.pow(player.y-y_mars,2)),1.5);
+                var difX = player.x - x_mars;
+                var difY = player.y - y_mars;
+            }
+            else if (on_planet == 'water')
+            {
+                x_acc = -attraction_water*(player.x-x_water)/Math.pow((Math.pow(player.x-x_water,2)+Math.pow(player.y-y_water,2)),1.5);
+                y_acc = -attraction_water*(player.y-y_water)/Math.pow((Math.pow(player.x-x_water,2)+Math.pow(player.y-y_water,2)),1.5);
+                var difX = player.x - x_water;
+                var difY = player.y - y_water;
+            }
+
+            if ( Math.abs(difX) < 0.1 && difY > 0)
+            {
+                target_angle = 90;
+            }
+            else if ( Math.abs(difX) < 0.1 && difY < 0)
+            {
+                target_angle = 270;
+            }
+            else if ( Math.abs(difY) < 0.1 && difX > 0)
+            {
+                target_angle = 0;
+            }
+            else if ( Math.abs(difY) < 0.1 && difX < 0)
+            {
+                target_angle = 180;
+            }
+            else if (difX > 0 && difY > 0)
+            {
+                target_angle = 360 - 360*Math.atan(difY/difX)/(2*Math.PI);
+            }
+            else if (difX > 0 && difY < 0)
+            {
+                target_angle = - 360*Math.atan(difY/difX)/(2*Math.PI);
+            }
+            else
+            {
+                target_angle = 180 - 360*Math.atan(difY/difX)/(2*Math.PI);
+            }
+
+            if (Math.abs(target_angle - robot_angle) > limit_angle)
+            {
+                if (((0 <= target_angle - robot_angle) && (target_angle - robot_angle < 180)) || target_angle - robot_angle < -180)
+                {
+                    //player.anims.play('right', true);
+                    robot_angle += 1.25;
+                    if (robot_angle >= 360)
+                    {
+                        robot_angle -= 360
+                    }
+                    player.angle -= 1.25;
+                }
+                else
+                {
+                    //player.anims.play('left', true);
+                    robot_angle -= 1.25;
+                    if (robot_angle < 0)
+                    {
+                        robot_angle += 360
+                    }
+                    player.angle += 1.25;
+                }
+            }
+            else
+            {
+                landing_done = true;
+                engine_heat = Math.max(0, engine_heat - 20);
+            }
+
+            if (cursors.left.isDown && on_land && landing_done)
+            {
+                /*if (on_obstacle)
+                {
+                    x_acc += 500*Math.cos(2*Math.PI*(player.angle-90)/360);
+                    y_acc += 500*Math.sin(2*Math.PI*(player.angle-90)/360);                    
+                }
+                else
+                {*/
+                x_acc += propulsion_factor_mode_1*propulsion*Math.cos(2*Math.PI*(player.angle-90)/360);
+                y_acc += propulsion_factor_mode_1*propulsion*Math.sin(2*Math.PI*(player.angle-90)/360);
+
+            }
+            else if (cursors.right.isDown && on_land && landing_done)
+            {
+                x_acc += propulsion_factor_mode_1*propulsion*Math.cos(2*Math.PI*(player.angle+90)/360);
+                y_acc += propulsion_factor_mode_1*propulsion*Math.sin(2*Math.PI*(player.angle+90)/360);
+            }
+
+            if (cursors.gas.isDown && on_land && landing_done)
+            {
+                x_acc += propulsion_factor_mode_1*propulsion*Math.cos(2*Math.PI*player.angle/360);
+                y_acc += propulsion_factor_mode_1*propulsion*Math.sin(2*Math.PI*player.angle/360);
+                on_land = false;
+                double_gas_ready = false;
+            }
+            else if (!cursors.gas.isDown)
+            {
+                double_gas_ready = true;
+            }
+            else if (cursors.gas.isDown && !on_land && double_gas_ready)
+            {
+                x_acc += propulsion_factor_mode_1*propulsion*Math.cos(2*Math.PI*player.angle/360);
+                y_acc += propulsion_factor_mode_1*propulsion*Math.sin(2*Math.PI*player.angle/360);
+                move_mode = 'fly';
+                landing_done = false;
+                robot_angle = -player.angle;
+                target_angle = -player.angle;
+            }
+        }
+
+        player.setAccelerationX(x_acc);
+        player.setAccelerationY(y_acc);
+
+        /*
+        if (player.x >= config.height + player_radius)
+        {
+            player.x = 0;
+        }
+        else if (player.x <= 0 + player_radius)
+        {
+            player.x = config.height;
+        }
+
+        if (player.y >= config.width + player_radius)
+        {
+            player.y = 0;
+        }
+        else if (player.y <= 0 + player_radius)
+        {
+            player.y = config.width;
+        }
+        */
+
+        // Gestion de la disparition du texte d'aide
+        if (cd_helpText == 0)
+        {
+            helpText.setText("");
         }
         else
         {
-            debug_inc = 0;
-            debugText.setText('target_angle : ' + target_angle + '  ***  target_angle_2 : ' + target_angle_2 +
-            '\n robot_angle : ' + robot_angle + '  ***  robot_angle_2 : ' + robot_angle_2 +
-            '\n player.angle : ' + player.angle + '  ***  player.angle_2 : ' + player_angle_2 +
-            '\n player.Vx : ' + 50*Math.round(player.body.velocity.x/50) + '  ***  player.Vy : ' + 50*Math.round(player.body.velocity.y/50) +
-            //'\n Velocity : ' + 100*Math.round(Math.pow(Math.pow(player.body.velocity.x,2)+Math.pow(player.body.velocity.y,2),0.5)/100) +
-            '\n Velocity : ' + Math.pow(Math.pow(vX,2)+Math.pow(vY,2),0.5) +
-            '\n on planet : ' + on_planet);
+            cd_helpText -= 1;
+        }
+
+        if (config.physics.arcade.debug)
+        {
+            // Section debug
+            if (debug_inc == 0)
+            {
+                debug_inc = 1;
+                target_angle_2 = target_angle;
+                robot_angle_2 = robot_angle;
+                player_angle_2 = player.angle;
+            }
+            else
+            {
+                debug_inc = 0;
+                debugText.setText('target_angle : ' + target_angle + '  ***  target_angle_2 : ' + target_angle_2 +
+                '\n robot_angle : ' + robot_angle + '  ***  robot_angle_2 : ' + robot_angle_2 +
+                '\n player.angle : ' + player.angle + '  ***  player.angle_2 : ' + player_angle_2 +
+                '\n player.Vx : ' + 50*Math.round(player.body.velocity.x/50) + '  ***  player.Vy : ' + 50*Math.round(player.body.velocity.y/50) +
+                //'\n Velocity : ' + 100*Math.round(Math.pow(Math.pow(player.body.velocity.x,2)+Math.pow(player.body.velocity.y,2),0.5)/100) +
+                '\n Velocity : ' + Math.pow(Math.pow(vX,2)+Math.pow(vY,2),0.5) +
+                '\n on planet : ' + on_planet);
+            }
         }
     }
 }
@@ -527,19 +555,19 @@ function earth_collision()
     var difX = player.x - x_earth;
     var difY = player.y - y_earth;
 
-    if ( Math.abs(difX) < 0.1 && difY > 0)
+    if (Math.abs(difX) < 0.1 && difY > 0)
     {
         target_angle = 90;
     }
-    else if ( Math.abs(difX) < 0.1 && difY < 0)
+    else if (Math.abs(difX) < 0.1 && difY < 0)
     {
         target_angle = 270;
     }
-    else if ( Math.abs(difY) < 0.1 && difX > 0)
+    else if (Math.abs(difY) < 0.1 && difX > 0)
     {
         target_angle = 0;
     }
-    else if ( Math.abs(difY) < 0.1 && difX < 0)
+    else if (Math.abs(difY) < 0.1 && difX < 0)
     {
         target_angle = 180;
     }
@@ -572,19 +600,19 @@ function mars_collision()
     var difX = player.x - x_mars;
     var difY = player.y - y_mars;
 
-    if ( Math.abs(difX) < 0.1 && difY > 0)
+    if (Math.abs(difX) < 0.1 && difY > 0)
     {
         target_angle = 90;
     }
-    else if ( Math.abs(difX) < 0.1 && difY < 0)
+    else if (Math.abs(difX) < 0.1 && difY < 0)
     {
         target_angle = 270;
     }
-    else if ( Math.abs(difY) < 0.1 && difX > 0)
+    else if (Math.abs(difY) < 0.1 && difX > 0)
     {
         target_angle = 0;
     }
-    else if ( Math.abs(difY) < 0.1 && difX < 0)
+    else if (Math.abs(difY) < 0.1 && difX < 0)
     {
         target_angle = 180;
     }
@@ -617,19 +645,19 @@ function water_collision()
     var difX = player.x - x_water;
     var difY = player.y - y_water;
 
-    if ( Math.abs(difX) < 0.1 && difY > 0)
+    if (Math.abs(difX) < 0.1 && difY > 0)
     {
         target_angle = 90;
     }
-    else if ( Math.abs(difX) < 0.1 && difY < 0)
+    else if (Math.abs(difX) < 0.1 && difY < 0)
     {
         target_angle = 270;
     }
-    else if ( Math.abs(difY) < 0.1 && difX > 0)
+    else if (Math.abs(difY) < 0.1 && difX > 0)
     {
         target_angle = 0;
     }
-    else if ( Math.abs(difY) < 0.1 && difX < 0)
+    else if (Math.abs(difY) < 0.1 && difX < 0)
     {
         target_angle = 180;
     }
