@@ -48,7 +48,10 @@ var player_radius = 50
 var propulsion = 1000;
 var engine_heat = 0;
 var engine_cooling = 0.15;
-    
+
+var vX = 0;
+var vY = 0;
+
 var x_acc = 0;
 var y_acc = 0;
 
@@ -131,9 +134,9 @@ function create ()
     water.setCircle(200);
     
     this.add.image(x_bh, y_bh, 'black_hole');
-    bh = planets.create(x_bh+160, y_bh+160, 'black_hole');
+    bh = planets.create(x_bh+180, y_bh+180, 'black_hole');
     bh.setVisible(false);
-    bh.setCircle(40);
+    bh.setCircle(20);
     
     flames = this.add.image(x_0, y_0, 'flames');
     flames.setVisible(false);
@@ -179,12 +182,19 @@ function create ()
     
     // Indications diverses
     helpText = this.add.text(800, 800, "C'est parti !", style);
+    
+    hpText = this.add.text(1700, 50, "Hp = 100", style);
 
     //  Collide the player and the stars with the platforms
-    this.physics.add.collider(player, earth, function(){move_mode = 'run'; on_land = true; on_planet = 'earth'; flames.setVisible(false)});
-    this.physics.add.collider(player, mars, function(){move_mode = 'run'; on_land = true; on_planet = 'mars'; flames.setVisible(false)});
-    this.physics.add.collider(player, water, function(){move_mode = 'run'; on_land = true; on_planet = 'water'; flames.setVisible(false)});
-    this.physics.add.collider(player, bh, function(){gameOver = true; helpText.setText("Ce trou noir vous a absorbé :O"); cd_helpText = 800; flames.setVisible(false)});
+    //this.physics.add.collider(player, earth, function(){move_mode = 'run'; on_land = true; on_planet = 'earth'; flames.setVisible(false)});
+    //this.physics.add.collider(player, mars, function(){move_mode = 'run'; on_land = true; on_planet = 'mars'; flames.setVisible(false)});
+    //this.physics.add.collider(player, water, function(){hp_reduction(); move_mode = 'run'; on_land = true; on_planet = 'water'; flames.setVisible(false)});
+    //this.physics.add.collider(player, water, function(){hp_player -= 10; move_mode = 'run'; on_land = true; on_planet = 'water'; flames.setVisible(false)});
+    //this.physics.add.collider(player, water, function(){move_mode = 'run'; on_land = true; on_planet = 'water'; flames.setVisible(false); helpText.setText("HP????"); if(Math.pow(Math.pow(vX_n0,2)+Math.pow(vY_n0,2),0.5) > 100){hp_player -= 10;}});
+    this.physics.add.collider(player, earth, earth_collision);
+    this.physics.add.collider(player, mars, mars_collision);
+    this.physics.add.collider(player, water, water_collision);
+    this.physics.add.collider(player, bh, function(){hp_player = 0; helpText.setText("Ce trou noir vous a absorbé :O"); cd_helpText = 800});
     
     // ********* SOUNDS *********
     
@@ -193,8 +203,8 @@ function create ()
     
     //this.sound.setDecodedCallback(engine, start, this);
     
-    this.cameras.main.setBounds(0, 0, 3000, 1500);
-    this.cameras.main.startFollow(player, true, 0.5, 0.5);
+    //this.cameras.main.setBounds(0, 0, 3000, 1500);
+    //this.cameras.main.startFollow(player, true, 1, 1);
     
     if (config.physics.arcade.debug)
     {
@@ -206,18 +216,25 @@ function create ()
         });
         debugText.setScrollFactor(0);
     }
-    
 }
 
 function update ()
 {
+    vX = player.body.velocity.x;
+    vY = player.body.velocity.y;
+    
+    hpText.setText('Hp = ' + hp_player);
+    
     space.tilePositionX = Math.cos(iter) * 2000;
     space.tilePositionY = Math.sin(iter) * 200;
     
     iter += 0.0002;
     
+    if (hp_player <= 0){gameOver=true;}
+    
     if (gameOver)
     {
+        flames.setVisible(false)
         player.destroy();
         return;
     }
@@ -494,10 +511,149 @@ function update ()
         else
         {
             debug_inc = 0;
-            debugText.setText('target_angle : ' + target_angle + ' - target_angle_2 : ' + target_angle_2 +
-            '\n robot_angle : ' + robot_angle + ' - robot_angle_2 : ' + robot_angle_2 +
-            '\n player.angle : ' + player.angle + ' - player.angle_2 : ' + player_angle_2);
+            debugText.setText('target_angle : ' + target_angle + '  ***  target_angle_2 : ' + target_angle_2 +
+            '\n robot_angle : ' + robot_angle + '  ***  robot_angle_2 : ' + robot_angle_2 +
+            '\n player.angle : ' + player.angle + '  ***  player.angle_2 : ' + player_angle_2 +
+            '\n player.Vx : ' + 50*Math.round(player.body.velocity.x/50) + '  ***  player.Vy : ' + 50*Math.round(player.body.velocity.y/50) +
+            //'\n Velocity : ' + 100*Math.round(Math.pow(Math.pow(player.body.velocity.x,2)+Math.pow(player.body.velocity.y,2),0.5)/100) +
+            '\n Velocity : ' + Math.pow(Math.pow(vX,2)+Math.pow(vY,2),0.5) +
+            '\n on planet : ' + on_planet);
         }
+    }
+}
+
+function earth_collision()
+{
+    var difX = player.x - x_earth;
+    var difY = player.y - y_earth;
+
+    if ( Math.abs(difX) < 0.1 && difY > 0)
+    {
+        target_angle = 90;
+    }
+    else if ( Math.abs(difX) < 0.1 && difY < 0)
+    {
+        target_angle = 270;
+    }
+    else if ( Math.abs(difY) < 0.1 && difX > 0)
+    {
+        target_angle = 0;
+    }
+    else if ( Math.abs(difY) < 0.1 && difX < 0)
+    {
+        target_angle = 180;
+    }
+    else if (difX > 0 && difY > 0)
+    {
+        target_angle = 360 - 360*Math.atan(difY/difX)/(2*Math.PI);
+    }
+    else if (difX > 0 && difY < 0)
+    {
+        target_angle = - 360*Math.atan(difY/difX)/(2*Math.PI);
+    }
+    else
+    {
+        target_angle = 180 - 360*Math.atan(difY/difX)/(2*Math.PI);
+    }
+    move_mode = 'run';
+    on_land = true;
+    on_planet = 'earth';
+    flames.setVisible(false);
+    hp_player -= Math.max(2*(Math.round(Math.pow(Math.pow(vX,2)+Math.pow(vY,2),0.5)/10)-18),0);
+    if (hp_player <= 0)
+    {
+        helpText.setText("Un atterrisage pourri de trop : /");
+        cd_helpText = 800;
+    }
+}
+
+function mars_collision()
+{
+    var difX = player.x - x_mars;
+    var difY = player.y - y_mars;
+
+    if ( Math.abs(difX) < 0.1 && difY > 0)
+    {
+        target_angle = 90;
+    }
+    else if ( Math.abs(difX) < 0.1 && difY < 0)
+    {
+        target_angle = 270;
+    }
+    else if ( Math.abs(difY) < 0.1 && difX > 0)
+    {
+        target_angle = 0;
+    }
+    else if ( Math.abs(difY) < 0.1 && difX < 0)
+    {
+        target_angle = 180;
+    }
+    else if (difX > 0 && difY > 0)
+    {
+        target_angle = 360 - 360*Math.atan(difY/difX)/(2*Math.PI);
+    }
+    else if (difX > 0 && difY < 0)
+    {
+        target_angle = - 360*Math.atan(difY/difX)/(2*Math.PI);
+    }
+    else
+    {
+        target_angle = 180 - 360*Math.atan(difY/difX)/(2*Math.PI);
+    }
+    move_mode = 'run';
+    on_land = true;
+    on_planet = 'mars';
+    flames.setVisible(false);
+    hp_player -= Math.max(2*(Math.round(Math.pow(Math.pow(vX,2)+Math.pow(vY,2),0.5)/10)-18),0);
+    if (hp_player <= 0)
+    {
+        helpText.setText("Un atterrisage pourri de trop : /");
+        cd_helpText = 800;
+    }
+}
+
+function water_collision()
+{
+    var difX = player.x - x_water;
+    var difY = player.y - y_water;
+
+    if ( Math.abs(difX) < 0.1 && difY > 0)
+    {
+        target_angle = 90;
+    }
+    else if ( Math.abs(difX) < 0.1 && difY < 0)
+    {
+        target_angle = 270;
+    }
+    else if ( Math.abs(difY) < 0.1 && difX > 0)
+    {
+        target_angle = 0;
+    }
+    else if ( Math.abs(difY) < 0.1 && difX < 0)
+    {
+        target_angle = 180;
+    }
+    else if (difX > 0 && difY > 0)
+    {
+        target_angle = 360 - 360*Math.atan(difY/difX)/(2*Math.PI);
+    }
+    else if (difX > 0 && difY < 0)
+    {
+        target_angle = - 360*Math.atan(difY/difX)/(2*Math.PI);
+    }
+    else
+    {
+        target_angle = 180 - 360*Math.atan(difY/difX)/(2*Math.PI);
+    }
+    move_mode = 'run';
+    on_land = true;
+    on_planet = 'water';
+    flames.setVisible(false);
+    hp_player -= Math.max(3*(Math.round(Math.abs(Math.sin(Math.PI*(target_angle - robot_angle)/360))*Math.pow(Math.pow(vX,2)+Math.pow(vY,2),0.5)/10)-3),0);
+    if (hp_player <= 0)
+    {
+        helpText.setText("Un atterrisage pourri de trop : /");
+        cd_helpText = 800;
     }
 }
 
