@@ -22,20 +22,23 @@ var config = {
         default: 'arcade',
         arcade: {
             //gravity: { y: 300 },
-            debug: false
+            debug: true
         }
     },
     scene: {
         preload: preload,
         create: create,
         update: update
-    }
+    },
+    input:{gamepad:true}
 };
 
 var style = { font: "40px Arial", fill: "#52bace", align: "center" };
 var cd_helpText = 60;
 
 var cursors;
+
+var gamepad;
     
 var gameOver = false;
 
@@ -62,6 +65,7 @@ var target_angle = 0;
 // PLANET MARS
 var x_mars = 200;
 var y_mars = 300;
+var r_mars = 100;
 
 var mars;
 var attraction_mars = 10000000;
@@ -69,6 +73,7 @@ var attraction_mars = 10000000;
 // PLANET EARTH
 var x_earth = 600;
 var y_earth = 600;
+var r_earth = 150;
 
 var earth;
 var attraction_earth = 20000000;
@@ -76,6 +81,7 @@ var attraction_earth = 20000000;
 // PLANET WATER
 var x_water = 1600;
 var y_water = 350;
+var r_water = 200;
 
 var water;
 var attraction_water = 15000000;
@@ -96,6 +102,9 @@ var propulsion_factor_mode_1 = 8;
 var on_land = false;
 var landing_done = false;
 
+var cd_invulnerable = 0;
+var invulnerable = false;
+
 var game = new Phaser.Game(config);
 
 var debug_inc = 0;
@@ -112,6 +121,7 @@ function preload ()
     this.load.image('earth_planet', 'assets/images/earth_planet_p.png');
     this.load.image('water_planet', 'assets/images/water_planet_p.png');
     this.load.image('black_hole', 'assets/images/black_hole_p.png');
+    this.load.image('bomb', 'assets/images/bomb.png');
     this.load.image('dude', 'assets/images/perso_v0.png');
     this.load.image('flames', 'assets/images/flames_p.png');
 
@@ -132,14 +142,21 @@ function create ()
     
     planets = this.physics.add.staticGroup();
     
+    bombs = this.physics.add.staticGroup();
+    
+    for (theta = 0; theta<360; theta = theta + 60)
+    {
+        var bomb = bombs.create(x_earth + r_earth * Math.cos(2*Math.PI*theta/360), y_earth + r_earth * Math.sin(2*Math.PI*theta/360), 'bomb');
+    }
+    
     mars = planets.create(x_mars, y_mars, 'mars_planet');
-    mars.setCircle(100);
+    mars.setCircle(r_mars);
     
     earth = planets.create(x_earth, y_earth, 'earth_planet');
-    earth.setCircle(150);
+    earth.setCircle(r_earth);
     
     water = planets.create(x_water, y_water, 'water_planet');
-    water.setCircle(200);
+    water.setCircle(r_water);
     
     this.add.image(x_bh, y_bh, 'black_hole');
     bh = planets.create(x_bh+180, y_bh+180, 'black_hole');
@@ -200,6 +217,7 @@ function create ()
     //this.physics.add.collider(player, water, function(){hp_reduction(); move_mode = 'run'; on_land = true; on_planet = 'water'; flames.setVisible(false)});
     //this.physics.add.collider(player, water, function(){hp_player -= 10; move_mode = 'run'; on_land = true; on_planet = 'water'; flames.setVisible(false)});
     //this.physics.add.collider(player, water, function(){move_mode = 'run'; on_land = true; on_planet = 'water'; flames.setVisible(false); helpText.setText("HP????"); if(Math.pow(Math.pow(vX_n0,2)+Math.pow(vY_n0,2),0.5) > 100){hp_player -= 10;}});
+    this.physics.add.overlap(player, bombs, bomb_collision, null, this);
     this.physics.add.collider(player, earth, earth_collision);
     this.physics.add.collider(player, mars, mars_collision);
     this.physics.add.collider(player, water, water_collision);
@@ -212,8 +230,26 @@ function create ()
     
     //this.sound.setDecodedCallback(engine, start, this);
     
-    this.cameras.main.setBounds(0, 0, config.width, config.height);
-    this.cameras.main.startFollow(player);//, true, 0.5, 0.5);
+    // ********* CAMERA *********
+    
+    //this.cameras.main.setBounds(0, 0, config.width, config.height);
+    //this.cameras.main.startFollow(player);//, true, 0.5, 0.5);
+    
+    // ********* GAMEPAD *********
+    
+    var text = this.add.text(10, 10, 'Press a button on the Gamepad to use', { font: '16px Courier', fill: '#00ff00' });
+
+    this.input.gamepad.once('down', function (pad, button, index) {
+        text.setText('Playing with ' + pad.id);
+        gamepad = pad;
+    }, this);
+    
+    //game.input.gamepad.start();
+
+    // To listen to buttons from a specific pad listen directly on that pad game.input.gamepad.padX, where X = pad 1-4
+    //pad1 = this.input.gamepad.pad1;
+    
+    // ********* DEBUG *********
     
     if (config.physics.arcade.debug)
     {
@@ -229,6 +265,10 @@ function create ()
 
 function update ()
 {
+    this.input.gamepad.once('connected', function (pad) {
+        // 'pad' is a reference to the gamepad that was just connected
+    });
+    
     vX = player.body.velocity.x;
     vY = player.body.velocity.y;
     
@@ -338,8 +378,58 @@ function update ()
                     player.angle += 2.5;
                 }
             }
+            
+            if (gamepad)
+            {
+                /*this.input.gamepad.button.children.each(function(butt){
+                        player.angle += 2.5;//console.log(butt);
+                },this);
+                */
+                /*this.gamepad.on('down', (pad, button, value) =>{
+                    console.log(button.index);          
+                });*/
+                
+                if (gamepad.left)
+                {
+                    // Le moteur ne peut être utilisé que s'il n'est pas en surchauffe
+                    if (engine_heat < 80)
+                    {
+                        // On modifie l'accélération à chaque frame en fonction de sa direction de propulsion et de sa position par rapport
+                        // aux différents astres attracteurs et objets répulseurs en utilisant des forces de type (Constante/Distance^2)
+                        x_acc += propulsion * Math.cos(2*Math.PI*robot_angle/360);
+                        y_acc += - propulsion * Math.sin(2*Math.PI*robot_angle/360);
+                        // Le moteur se réchauffe lorsqu'il est utilisé, et il émet un son
+                        engine_heat += 1;
+                        flames.x = player.x - 75*Math.cos(2*Math.PI*player.angle/360);
+                        flames.y = player.y - 75*Math.sin(2*Math.PI*player.angle/360);
+                        flames.angle = player.angle - 90;
+                        flames.setVisible(true);
+                        engine.play();
+                    }
+                    else
+                    {
+                        helpText.setText("Moteur en surchauffe !");
+                        flames.setVisible(false);
+                        cd_helpText = 80;
+                    }
+                }
+                else
+                {
+                    // Le moteur se refroidit lorsqu'il n'est pas utilisé
+                    flames.setVisible(false);
+                    engine_heat = Math.max(0, engine_heat - engine_cooling);
+                }
 
-            if (cursors.gas.isDown)
+                /*if (gamepad.up)
+                {
+                    sprite.y -= 4;
+                }
+                else if (gamepad.down)
+                {
+                    sprite.y += 4;
+                }*/
+            }
+            else if (cursors.gas.isDown)// || gamepad.justPressed(Phaser.Gamepad.XBOX360_A))
             {
                 // Le moteur ne peut être utilisé que s'il n'est pas en surchauffe
                 if (engine_heat < 80)
@@ -516,6 +606,15 @@ function update ()
         }
         */
 
+        if (cd_invulnerable == 0)
+        {
+            invulnerable = false;
+        }
+        else
+        {
+            cd_invulnerable -= 1;
+        }
+        
         // Gestion de la disparition du texte d'aide
         if (cd_helpText == 0)
         {
@@ -551,6 +650,21 @@ function update ()
     }
 }
 
+function bomb_collision()
+{
+    if (!invulnerable)
+    {
+        hp_player -= 10;
+        if (hp_player <= 0)
+        {
+            helpText.setText("Pense à arrêter de marcher dans les piques : /");
+            cd_helpText = 800;
+        }
+        invulnerable = true;
+        cd_invulnerable = 180;
+    }
+}
+    
 function earth_collision()
 {
     var difX = player.x - x_earth;
