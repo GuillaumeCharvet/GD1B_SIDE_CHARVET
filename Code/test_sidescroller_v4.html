@@ -122,6 +122,7 @@ function preload ()
     this.load.image('water_planet', 'assets/images/water_planet_p.png');
     this.load.image('black_hole', 'assets/images/black_hole_p.png');
     this.load.image('bomb', 'assets/images/bomb.png');
+    this.load.image('pick_up_hp', 'assets/images/star.png');
     this.load.image('dude', 'assets/images/perso_v0.png');
     this.load.image('flames', 'assets/images/flames_p.png');
 
@@ -144,9 +145,32 @@ function create ()
     
     bombs = this.physics.add.staticGroup();
     
-    for (theta = 0; theta<360; theta = theta + 60)
+    for (theta = 0+200; theta<360+200; theta = theta + 360)
     {
-        var bomb = bombs.create(x_earth + r_earth * Math.cos(2*Math.PI*theta/360), y_earth + r_earth * Math.sin(2*Math.PI*theta/360), 'bomb');
+        var bomb = bombs.create(x_mars + (r_mars-4) * Math.cos(2*Math.PI*theta/360), y_mars + (r_mars-4) * Math.sin(2*Math.PI*theta/360), 'bomb');
+    }
+    for (theta = 0+50; theta<360+50; theta = theta + 120)
+    {
+        var bomb = bombs.create(x_earth + (r_earth) * Math.cos(2*Math.PI*theta/360), y_earth + (r_earth) * Math.sin(2*Math.PI*theta/360), 'bomb');
+    }
+    for (theta = 0+40; theta<360+40; theta = theta + 60)
+    {
+        var bomb = bombs.create(x_water + (r_water+10) * Math.cos(2*Math.PI*theta/360), y_water + (r_water+10) * Math.sin(2*Math.PI*theta/360), 'bomb');
+    }
+    
+    pick_up_hps = this.physics.add.staticGroup();
+    
+    for (theta = 0+140; theta<360+140; theta = theta + 160)
+    {
+        var pick_up_hp = pick_up_hps.create(x_mars + (r_mars+5) * Math.cos(2*Math.PI*theta/360), y_mars + (r_mars+5) * Math.sin(2*Math.PI*theta/360), 'pick_up_hp');
+    }
+    for (theta = 0+0; theta<360+0; theta = theta + 140)
+    {
+        var pick_up_hp = pick_up_hps.create(x_earth + (r_earth+10) * Math.cos(2*Math.PI*theta/360), y_earth + (r_earth+10) * Math.sin(2*Math.PI*theta/360), 'pick_up_hp');
+    }
+    for (theta = 0+90; theta<360+90; theta = theta + 120)
+    {
+        var pick_up_hp = pick_up_hps.create(x_water + (r_water+10) * Math.cos(2*Math.PI*theta/360), y_water + (r_water+10) * Math.sin(2*Math.PI*theta/360), 'pick_up_hp');
     }
     
     mars = planets.create(x_mars, y_mars, 'mars_planet');
@@ -218,6 +242,7 @@ function create ()
     //this.physics.add.collider(player, water, function(){hp_player -= 10; move_mode = 'run'; on_land = true; on_planet = 'water'; flames.setVisible(false)});
     //this.physics.add.collider(player, water, function(){move_mode = 'run'; on_land = true; on_planet = 'water'; flames.setVisible(false); helpText.setText("HP????"); if(Math.pow(Math.pow(vX_n0,2)+Math.pow(vY_n0,2),0.5) > 100){hp_player -= 10;}});
     this.physics.add.overlap(player, bombs, bomb_collision, null, this);
+    this.physics.add.overlap(player, pick_up_hps, hp_collision, null, this);
     this.physics.add.collider(player, earth, earth_collision);
     this.physics.add.collider(player, mars, mars_collision);
     this.physics.add.collider(player, water, water_collision);
@@ -650,6 +675,12 @@ function update ()
     }
 }
 
+function hp_collision(player, pick_up_hp)
+{
+    pick_up_hp.disableBody(true, true);
+    hp_player += 20;
+}
+    
 function bomb_collision()
 {
     if (!invulnerable)
