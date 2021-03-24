@@ -1,5 +1,5 @@
 <!doctype html> 
-<html lang="en"> 
+<html lang="fr"> 
 <head> 
     <meta charset="UTF-8" />
     <title>Making your first Phaser 3 Game - Part 10</title>
@@ -16,8 +16,8 @@
 
 var config = {
     type: Phaser.CANVAS,
-    width: 16000,
-    height: 8000,
+    width: 1280,
+    height: 720,
     physics: {
         default: 'arcade',
         arcade: {
@@ -39,7 +39,11 @@ var cd_helpText = 60;
 var cursors;
 
 var gamepad;
-    
+
+var gamepadA;
+var gamepadL;
+var gamepadR;
+
 var gameOver = false;
 
 // PLAYER
@@ -48,9 +52,11 @@ var hp_player = 100;
 var x_0 = 1100;
 var y_0 = 300;
 var player_radius = 50
-var propulsion = 1000;
+var propulsion = 1200;
 var engine_heat = 0;
-var engine_cooling = 0.15;
+var engine_cooling = 0.30;
+
+var size_player;
 
 var vX = 0;
 var vY = 0;
@@ -68,7 +74,7 @@ var y_mars = 300;
 var r_mars = 100;
 
 var mars;
-var attraction_mars = 10000000;
+var attraction_mars = 20000000;
 
 // PLANET EARTH
 var x_earth = 600;
@@ -76,7 +82,7 @@ var y_earth = 600;
 var r_earth = 150;
 
 var earth;
-var attraction_earth = 20000000;
+var attraction_earth = 40000000;
 
 // PLANET WATER
 var x_water = 1600;
@@ -84,15 +90,18 @@ var y_water = 350;
 var r_water = 200;
 
 var water;
-var attraction_water = 15000000;
+var attraction_water = 30000000;
 
 // BLACK HOLE
 var x_bh = 1400;
 var y_bh = 850;
+var r_bh = 20;
 
 var bh;
-var attraction_bh = 40000000;
+var attraction_bh = 50000000;
 
+var sucked_by_bh;
+    
 var move_mode = 'fly';
 var on_planet;
 var double_gas_ready = false;
@@ -113,7 +122,7 @@ var robot_angle_2;
 var player_angle_2;
 
 var iter = 0;
-    
+
 function preload ()
 {
     this.load.image('space', 'assets/images/bg_space.jpg');
@@ -137,9 +146,16 @@ function create ()
     cd_helpText = 60;
     engine_heat = 0;
     move_mode = 'fly';
+    double_gas_ready = false;
     gameOver = false;
+    on_land = false;
+    landing_done = false;
+    cd_invulnerable = 0;
+    invulnerable = false;
+    size_player = 1;
+    sucked_by_bh = false;
     
-    space = this.add.tileSprite(0, 0, config.width, config.height, 'space');
+    space = this.add.tileSprite(0, 0, 12000, 12000, 'space');
     
     planets = this.physics.add.staticGroup();
     
@@ -185,7 +201,7 @@ function create ()
     this.add.image(x_bh, y_bh, 'black_hole');
     bh = planets.create(x_bh+180, y_bh+180, 'black_hole');
     bh.setVisible(false);
-    bh.setCircle(20);
+    bh.setCircle(r_bh);
     
     flames = this.add.image(x_0, y_0, 'flames');
     flames.setVisible(false);
@@ -230,10 +246,10 @@ function create ()
     cursors = this.input.keyboard.addKeys({ 'up': Phaser.Input.Keyboard.KeyCodes.Z, 'left': Phaser.Input.Keyboard.KeyCodes.Q, 'right': Phaser.Input.Keyboard.KeyCodes.D, 'down': Phaser.Input.Keyboard.KeyCodes.S,'gas': Phaser.Input.Keyboard.KeyCodes.SPACE, 'restart': Phaser.Input.Keyboard.KeyCodes.R, 'abandon': Phaser.Input.Keyboard.KeyCodes.A});
     
     // Indications diverses
-    helpText = this.add.text(700, 800, "C'est parti !", style);
-    deathText = this.add.text(700, 850, "", style);
+    helpText = this.add.text(500, 600, "C'est parti !", style).setScrollFactor(0);
+    deathText = this.add.text(400, 650, "", style).setScrollFactor(0);
     
-    hpText = this.add.text(1700, 50, "Hp = 100", style);
+    hpText = this.add.text(1100, 50, "Hp = 100", style).setScrollFactor(0);
 
     //  Collide the player and the stars with the platforms
     //this.physics.add.collider(player, earth, function(){move_mode = 'run'; on_land = true; on_planet = 'earth'; flames.setVisible(false)});
@@ -246,7 +262,8 @@ function create ()
     this.physics.add.collider(player, earth, earth_collision);
     this.physics.add.collider(player, mars, mars_collision);
     this.physics.add.collider(player, water, water_collision);
-    this.physics.add.collider(player, bh, function(){hp_player = 0; helpText.setText("Ce trou noir vous a absorbé :O"); cd_helpText = 800});
+    //this.physics.add.collider(player, bh, function(){hp_player = 0; helpText.setText("Ce trou noir vous a absorbé :O"); cd_helpText = 800});
+    this.physics.add.collider(player, bh, bh_collision);
     
     // ********* SOUNDS *********
     
@@ -257,16 +274,25 @@ function create ()
     
     // ********* CAMERA *********
     
-    //this.cameras.main.setBounds(0, 0, config.width, config.height);
-    //this.cameras.main.startFollow(player);//, true, 0.5, 0.5);
+    this.physics.world.setBounds(-4000, -4000, 8000, 8000);
+    
+    //this.cameras.main.setBounds(0, 0, 1920 * 8, 1080 * 6);
+    
+    //this.cameras.main.setBounds(-8000, -8000, 5000, 5000);
+    
+    this.cameras.main.startFollow(player, true, 0.5, 0.5);
     
     // ********* GAMEPAD *********
     
-    var text = this.add.text(10, 10, 'Press a button on the Gamepad to use', { font: '16px Courier', fill: '#00ff00' });
+    var text = this.add.text(10, 10, 'Press a button on the Gamepad to use', { font: '16px Courier', fill: '#00ff00' }).setScrollFactor(0);;
 
     this.input.gamepad.once('down', function (pad, button, index) {
         text.setText('Playing with ' + pad.id);
         gamepad = pad;
+        for (const b of gamepad.buttons)
+        {
+            text.setText(helpText + b.index);
+        }
     }, this);
     
     //game.input.gamepad.start();
@@ -294,6 +320,13 @@ function update ()
         // 'pad' is a reference to the gamepad that was just connected
     });
     
+    gamepad?gamepadA=gamepad.A:gamepadA=false;
+    gamepad?gamepadL=(gamepad.leftStick.x<-0.5?true:false):gamepadL=false;
+    gamepad?gamepadR=(gamepad.leftStick.x>+0.5?true:false):gamepadR=false;
+    //if(gamepad){gamepadA = gamepad.A;}else{gamepadA =false;}
+    //if(gamepad){gamepadL = ();}else{gamepadA =false;}
+    //if(gamepad){gamepadA = gamepad.A;}else{gamepadA =false;}
+    
     vX = player.body.velocity.x;
     vY = player.body.velocity.y;
     
@@ -306,7 +339,7 @@ function update ()
     
     if (hp_player <= 0){gameOver=true;}
     
-    if (cursors.restart.isDown)
+    if (cursors.restart.isDown)// || gamepad.Start)
     {
         this.registry.destroy(); // destroy registry
         this.events.off(); // disable all active events
@@ -334,7 +367,7 @@ function update ()
     {
         if (move_mode == 'fly')
         {
-            // Le joueur est attiré par toutes les planètes 
+            // Le joueur est attiré par toutes les planètes
             x_acc = -attraction_mars*(player.x-x_mars)/Math.pow((Math.pow(player.x-x_mars,2)+Math.pow(player.y-y_mars,2)),1.5);
             x_acc += -attraction_earth*(player.x-x_earth)/Math.pow((Math.pow(player.x-x_earth,2)+Math.pow(player.y-y_earth,2)),1.5);
             x_acc += -attraction_water*(player.x-x_water)/Math.pow((Math.pow(player.x-x_water,2)+Math.pow(player.y-y_water,2)),1.5);
@@ -343,6 +376,24 @@ function update ()
             y_acc += -attraction_earth*(player.y-y_earth)/Math.pow((Math.pow(player.x-x_earth,2)+Math.pow(player.y-y_earth,2)),1.5);
             y_acc += -attraction_water*(player.y-y_water)/Math.pow((Math.pow(player.x-x_water,2)+Math.pow(player.y-y_water,2)),1.5);
             y_acc += -attraction_bh*(player.y-y_bh)/Math.pow((Math.pow(player.x-x_bh,2)+Math.pow(player.y-y_bh,2)),1.5);
+            
+            x_acc += +6*attraction_mars*(player.x+4000)/Math.pow(Math.pow(player.x+4000,2),1.5);
+            y_acc += +6*attraction_mars*(player.y+4000)/Math.pow(Math.pow(player.y+4000,2),1.5);
+            x_acc += +6*attraction_mars*(player.x-4000)/Math.pow(Math.pow(player.x-4000,2),1.5);
+            y_acc += +6*attraction_mars*(player.y-4000)/Math.pow(Math.pow(player.y-4000,2),1.5);
+
+            if (gamepad)
+            {
+                if (Math.pow(gamepad.leftStick.x,2)+Math.pow(gamepad.leftStick.y,2)>0.95)
+                {
+                    if (gamepad.leftStick.x == 0){target_angle = 0;}
+                    else
+                    {
+                        target_angle = Math.round(360*Math.atan2(-gamepad.leftStick.y,gamepad.leftStick.x)/(2*Math.PI));
+                        if (target_angle < 0){target_angle += 360;}
+                    }
+                }
+            }
 
             //Définition de la direction souhaitée du joueur :
             if (cursors.left.isDown && !cursors.up.isDown && !cursors.right.isDown && !cursors.down.isDown)
@@ -377,7 +428,7 @@ function update ()
             {
                 target_angle = 225;
             }
-
+            
             // Gestion de la rotation du joueur pour atteindre la direction souhaitée :
             // on tourne le joueur jusqu'à l'atteindre en utilisant le sens de rotation qui minimise la durée de rotation.
             if (Math.abs(target_angle - robot_angle) > limit_angle)
@@ -404,17 +455,17 @@ function update ()
                 }
             }
             
-            if (gamepad)
+            /*if (gamepad)
             {
                 /*this.input.gamepad.button.children.each(function(butt){
                         player.angle += 2.5;//console.log(butt);
                 },this);
-                */
+                
                 /*this.gamepad.on('down', (pad, button, value) =>{
                     console.log(button.index);          
-                });*/
+                });
                 
-                if (gamepad.left)
+                if (gamepad.A)
                 {
                     // Le moteur ne peut être utilisé que s'il n'est pas en surchauffe
                     if (engine_heat < 80)
@@ -452,9 +503,11 @@ function update ()
                 else if (gamepad.down)
                 {
                     sprite.y += 4;
-                }*/
+                }
             }
-            else if (cursors.gas.isDown)// || gamepad.justPressed(Phaser.Gamepad.XBOX360_A))
+            else */
+            
+            if (cursors.gas.isDown || gamepadA)
             {
                 // Le moteur ne peut être utilisé que s'il n'est pas en surchauffe
                 if (engine_heat < 80)
@@ -567,7 +620,7 @@ function update ()
                 engine_heat = Math.max(0, engine_heat - 20);
             }
 
-            if (cursors.left.isDown && on_land && landing_done)
+            if ((cursors.left.isDown || gamepadL) && on_land && landing_done)
             {
                 /*if (on_obstacle)
                 {
@@ -580,24 +633,24 @@ function update ()
                 y_acc += propulsion_factor_mode_1*propulsion*Math.sin(2*Math.PI*(player.angle-90)/360);
 
             }
-            else if (cursors.right.isDown && on_land && landing_done)
+            else if ((cursors.right.isDown || gamepadR) && on_land && landing_done)
             {
                 x_acc += propulsion_factor_mode_1*propulsion*Math.cos(2*Math.PI*(player.angle+90)/360);
                 y_acc += propulsion_factor_mode_1*propulsion*Math.sin(2*Math.PI*(player.angle+90)/360);
             }
 
-            if (cursors.gas.isDown && on_land && landing_done)
+            if ((cursors.gas.isDown || gamepadA) && on_land && landing_done)
             {
                 x_acc += propulsion_factor_mode_1*propulsion*Math.cos(2*Math.PI*player.angle/360);
                 y_acc += propulsion_factor_mode_1*propulsion*Math.sin(2*Math.PI*player.angle/360);
                 on_land = false;
                 double_gas_ready = false;
             }
-            else if (!cursors.gas.isDown)
+            else if (!cursors.gas.isDown && !gamepadA)
             {
                 double_gas_ready = true;
             }
-            else if (cursors.gas.isDown && !on_land && double_gas_ready)
+            else if ((cursors.gas.isDown || gamepadA) && !on_land && double_gas_ready)
             {
                 x_acc += propulsion_factor_mode_1*propulsion*Math.cos(2*Math.PI*player.angle/360);
                 y_acc += propulsion_factor_mode_1*propulsion*Math.sin(2*Math.PI*player.angle/360);
@@ -669,6 +722,7 @@ function update ()
                 '\n player.Vx : ' + 50*Math.round(player.body.velocity.x/50) + '  ***  player.Vy : ' + 50*Math.round(player.body.velocity.y/50) +
                 //'\n Velocity : ' + 100*Math.round(Math.pow(Math.pow(player.body.velocity.x,2)+Math.pow(player.body.velocity.y,2),0.5)/100) +
                 '\n Velocity : ' + Math.pow(Math.pow(vX,2)+Math.pow(vY,2),0.5) +
+                '\n Angle : ' + Math.pow(Math.pow(vX,2)+Math.pow(vY,2),0.5) +
                 '\n on planet : ' + on_planet);
             }
         }
@@ -828,6 +882,23 @@ function water_collision()
     {
         helpText.setText("Un atterrisage pourri de trop : /");
         cd_helpText = 800;
+    }
+}
+
+function bh_collision()
+{
+    sucked_by_bh = true;
+    if (size_player <= 0.01)
+    {
+        hp_player = 0;
+        helpText.setText("Ce trou noir vous a absorbé :O");
+        cd_helpText = 800;
+    }
+    else
+    {
+        size_player -= 0.01;
+        attraction_bh *= 0.9;
+        player.setScale(size_player);
     }
 }
 
