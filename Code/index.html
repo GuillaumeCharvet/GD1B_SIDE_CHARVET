@@ -49,8 +49,8 @@ var gameOver = false;
 // PLAYER
 var player;
 var hp_player = 100;
-var x_0 = 0;
-var y_0 = 600;
+var x_0 = -400;
+var y_0 = 200;
 var player_radius = 50
 var propulsion = 1200;
 var engine_heat = 0;
@@ -149,6 +149,8 @@ var iter = 0;
 var miel_number = 0;
 
 var hauteur_miel;
+var cd_power_up;
+var cd_accueil = 300;
 
 function preload ()
 {
@@ -162,8 +164,11 @@ function preload ()
     //this.load.image('dude', 'assets/images/Dude_v4.png');
     this.load.image('dude2', 'assets/images/perso_v0.png');
     //this.load.image('cop', 'assets/images/perso_v00.png');
-    this.load.image('flames', 'assets/images/flames.png');
+    this.load.image('flames', 'assets/images/flames.png');   
     
+    this.load.image('accueil', 'assets/images/accueil.png');
+    
+    this.load.image('power_up', 'assets/images/power_up.png');
     
     this.load.image('avant_jauge', 'assets/images/Avant_jauge.png');
     this.load.image('arriere_jauge', 'assets/images/Arriere_jauge.png');
@@ -206,13 +211,18 @@ function create ()
     bounce_acc_x = 0;
     bounce_acc_y = 0;
     dodge_planet = '';
-    hauteur_miel = 1.0;
+    hauteur_miel = 1;
+    cd_power_up = 0;
     
     space = this.add.tileSprite(0, 0, 12000, 12000, 'space');
     
     planets = this.physics.add.staticGroup();
     
     bombs = this.physics.add.staticGroup();
+    
+    power_ups = this.physics.add.staticGroup();
+    
+    var power_up = power_ups.create(500, 100, 'power_up');    
     
     for (theta = 0+200; theta<360+200; theta = theta + 360)
     {
@@ -293,6 +303,10 @@ function create ()
     flames = this.add.image(x_0, y_0, 'flames');
     flames.setVisible(false);
     
+    accueil = this.add.image(x_0, y_0, 'accueil');
+    accueil.setDepth(10);
+    
+    
     // The player and its settings
     player = this.physics.add.sprite(x_0, y_0, 'dude');
 
@@ -347,6 +361,7 @@ function create ()
     
     this.physics.add.overlap(player, bombs, bomb_collision, null, this);
     this.physics.add.overlap(player, pick_up_hps, hp_collision, null, this);
+    this.physics.add.overlap(player, power_ups, power_up_collision, null, this);
     this.physics.add.collider(player, earth, earth_collision);
     this.physics.add.collider(player, mars, mars_collision);
     this.physics.add.collider(player, water, water_collision);
@@ -413,6 +428,13 @@ function create ()
 
 function update ()
 {
+    if (cd_accueil > 0)
+    {
+        cd_accueil -= 1;
+    }
+    else
+    {
+        accueil.setVisible(false);
     this.input.gamepad.once('connected', function (pad) {
         // 'pad' is a reference to the gamepad that was just connected
     });
@@ -775,45 +797,18 @@ function update ()
             coulure_3.setVisible(false);
         }
         
-        if (hauteur_miel < Math.floor(Math.min(hp_player,100)/100))
-        {
-            hauteur_miel -= 0.01;            
-            miel.setScale(1,hauteur_miel);
-        }
-        else
+        if (hauteur_miel < (Math.min(hp_player,100)/100))
         {
             hauteur_miel += 0.01;            
             miel.setScale(1,hauteur_miel);
-        }
-        
-        /*// Gestion jauge
-        if (hp_player >= 100)
-        {
-            coulure_1.setVisible(true);
-            if (hp_player >= 120)
-            {
-                coulure_2.setVisible(true);
-                if (hp_player >= 150)
-                {
-                    coulure_3.setVisible(true);            
-                }
-                else
-                {
-                    coulure_3.setVisible(false);
-                }
-            }
-            else
-            {
-                coulure_2.setVisible(false);
-                coulure_3.setVisible(false);
-            }
+            miel.y -= 0.85;
         }
         else
         {
-            coulure_1.setVisible(false);
-            coulure_2.setVisible(false);
-            coulure_3.setVisible(false);
-        }*/
+            hauteur_miel -= 0.01;
+            miel.setScale(1,hauteur_miel);
+            miel.y += 0.85;
+        }
         
         x_acc += bounce_acc_x;
         y_acc += bounce_acc_y;
@@ -883,6 +878,13 @@ function update ()
     x_acc_enemy += +6*20000000*(enemy.x-4000)/Math.pow(Math.pow(enemy.x-4000,2),1.5);
     y_acc_enemy += +6*20000000*(enemy.y-4000)/Math.pow(Math.pow(enemy.y-4000,2),1.5);
     
+    if (cd_power_up > 0)
+    {
+        cd_power_up -= 1;
+        x_acc_enemy += -20000000*(player.x - enemy.x)/Math.pow(Math.pow(player.x - enemy.x,2)+Math.pow(player.y - enemy.y,2),1.5);
+        y_acc_enemy += -20000000*(player.y - enemy.y)/Math.pow(Math.pow(player.x - enemy.x,2)+Math.pow(player.y - enemy.y,2),1.5);
+    }
+    
     if (timer_action_enemy >= cd_action_enemy)
     {
         timer_action_enemy =0;
@@ -932,9 +934,15 @@ function update ()
     
     vX_0 = enemy.body.velocity.x;
     vY_0 = enemy.body.velocity.y;
-    
+    }
 }
 
+function power_up_collision(player, power_up)
+{
+    power_up.disableBody(true, true);
+    cd_power_up = 800;
+}
+    
 function hp_collision(player, pick_up_hp)
 {
     pick_up_hp.disableBody(true, true);
