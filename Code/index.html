@@ -22,7 +22,7 @@ var config = {
         default: 'arcade',
         arcade: {
             //gravity: { y: 300 },
-            debug: true
+            debug: false
         }
     },
     scene: {
@@ -33,7 +33,7 @@ var config = {
     input:{gamepad:true}
 };
 
-var style = { font: "40px Arial", fill: "#52bace", align: "center" };
+var style = { font: "40px Arial", fill: "#52bace", align: "center" , backgroundColor: "#395B75"};
 var cd_helpText = 60;
 
 var cursors;
@@ -49,14 +49,15 @@ var gameOver = false;
 // PLAYER
 var player;
 var hp_player = 100;
-var x_0 = 1100;
-var y_0 = 300;
+var x_0 = 0;
+var y_0 = 600;
 var player_radius = 50
 var propulsion = 1200;
 var engine_heat = 0;
 var engine_cooling = 0.30;
 
 var size_player;
+var size_flames;
 
 var vX = 0;
 var vY = 0;
@@ -68,6 +69,28 @@ var limit_angle = 1;
 var robot_angle = 0;
 var target_angle = 0;
 
+// ENEMY
+var enemy;
+var hp_enemy;
+var x_0_enemy = -200;
+var y_0_enemy = 600;
+var enemy_radius = 50
+
+var vX_0;
+var vY_0;
+
+var x_acc_enemy = 0;
+var y_acc_enemy = 0;
+
+var timer_action_enemy = 0;
+var cd_action_enemy = 150;
+
+var bounce_acc_x;
+var bounce_acc_y;
+    
+var dodge_planet = '';
+var sign_to_dodge;
+    
 // PLANET MARS
 var x_mars = 200;
 var y_mars = 300;
@@ -122,20 +145,42 @@ var robot_angle_2;
 var player_angle_2;
 
 var iter = 0;
+    
+var miel_number = 0;
+
+var hauteur_miel;
 
 function preload ()
 {
-    this.load.image('space', 'assets/images/bg_space.jpg');
-    this.load.image('mars_planet', 'assets/images/mars_planet_p.png');
-    this.load.image('earth_planet', 'assets/images/earth_planet_p.png');
+    this.load.image('space', 'assets/images/bg3.png');
+    this.load.image('mars_planet', 'assets/images/planete_ruche.png');
+    this.load.image('earth_planet', 'assets/images/planete_alveole.png');
     this.load.image('water_planet', 'assets/images/water_planet_p.png');
-    this.load.image('black_hole', 'assets/images/black_hole_p.png');
-    this.load.image('bomb', 'assets/images/bomb.png');
-    this.load.image('pick_up_hp', 'assets/images/star.png');
-    this.load.image('dude', 'assets/images/perso_v0.png');
-    this.load.image('flames', 'assets/images/flames_p.png');
+    this.load.image('black_hole', 'assets/images/black_hole.png');
+    this.load.image('bomb', 'assets/images/pics.png');
+    this.load.image('pick_up_hp', 'assets/images/miel_pot.png');
+    //this.load.image('dude', 'assets/images/Dude_v4.png');
+    this.load.image('dude2', 'assets/images/perso_v0.png');
+    //this.load.image('cop', 'assets/images/perso_v00.png');
+    this.load.image('flames', 'assets/images/flames.png');
+    
+    
+    this.load.image('avant_jauge', 'assets/images/Avant_jauge.png');
+    this.load.image('arriere_jauge', 'assets/images/Arriere_jauge.png');
+    this.load.image('miel', 'assets/images/miel.png');
+    this.load.image('coulure_1', 'assets/images/Coulure_1.png');
+    this.load.image('coulure_2', 'assets/images/Coulure_2.png');
+    this.load.image('coulure_3', 'assets/images/Coulure_3.png');
+    
+    this.load.spritesheet('dude', 'assets/images/Dude1to12.png', { frameWidth: 100, frameHeight: 100 });
+    this.load.spritesheet('cop', 'assets/images/police.png', { frameWidth: 93, frameHeight: 62 });
 
-    this.load.audio('engine', 'assets/audio/explosion.mp3');
+    this.load.image('anneaux_avant', 'assets/images/anneaux_avant.png');
+    this.load.image('anneaux_arriere', 'assets/images/anneaux_arriere.png');
+
+    this.load.audio('engine0', 'assets/audio/explosion.mp3');
+    this.load.audio('enemy_hurt', 'assets/audio/Bzz2.m4a');
+    this.load.audio('engine', 'assets/audio/Bzz1.m4a');
 }
 
 function create ()
@@ -153,7 +198,15 @@ function create ()
     cd_invulnerable = 0;
     invulnerable = false;
     size_player = 1;
+    size_flames = 0.2;
+    attraction_bh = 50000000;
     sucked_by_bh = false;
+    hp_enemy = 100;
+    timer_action_enemy = 0;
+    bounce_acc_x = 0;
+    bounce_acc_y = 0;
+    dodge_planet = '';
+    hauteur_miel = 1.0;
     
     space = this.add.tileSprite(0, 0, 12000, 12000, 'space');
     
@@ -163,31 +216,59 @@ function create ()
     
     for (theta = 0+200; theta<360+200; theta = theta + 360)
     {
-        var bomb = bombs.create(x_mars + (r_mars-4) * Math.cos(2*Math.PI*theta/360), y_mars + (r_mars-4) * Math.sin(2*Math.PI*theta/360), 'bomb');
+        var bomb = bombs.create(x_mars + (r_mars+13) * Math.cos(2*Math.PI*theta/360), y_mars + (r_mars+13) * Math.sin(2*Math.PI*theta/360), 'bomb');
+        bomb.angle = theta+90;
     }
-    for (theta = 0+50; theta<360+50; theta = theta + 120)
+    for (theta = 0+60; theta<360+60; theta = theta + 120)
     {
-        var bomb = bombs.create(x_earth + (r_earth) * Math.cos(2*Math.PI*theta/360), y_earth + (r_earth) * Math.sin(2*Math.PI*theta/360), 'bomb');
+        var bomb = bombs.create(x_earth + (r_earth+13) * Math.cos(2*Math.PI*theta/360), y_earth + (r_earth+13) * Math.sin(2*Math.PI*theta/360), 'bomb');
+        bomb.angle = theta+90;
     }
     for (theta = 0+40; theta<360+40; theta = theta + 60)
     {
-        var bomb = bombs.create(x_water + (r_water+10) * Math.cos(2*Math.PI*theta/360), y_water + (r_water+10) * Math.sin(2*Math.PI*theta/360), 'bomb');
+        var bomb = bombs.create(x_water + (r_water+13) * Math.cos(2*Math.PI*theta/360), y_water + (r_water+13) * Math.sin(2*Math.PI*theta/360), 'bomb');
+        bomb.angle = theta+90;
     }
     
     pick_up_hps = this.physics.add.staticGroup();
     
     for (theta = 0+140; theta<360+140; theta = theta + 160)
     {
-        var pick_up_hp = pick_up_hps.create(x_mars + (r_mars+5) * Math.cos(2*Math.PI*theta/360), y_mars + (r_mars+5) * Math.sin(2*Math.PI*theta/360), 'pick_up_hp');
+        var pick_up_hp = pick_up_hps.create(x_mars + (r_mars+30) * Math.cos(2*Math.PI*theta/360), y_mars + (r_mars+30) * Math.sin(2*Math.PI*theta/360), 'pick_up_hp');
+        pick_up_hp.angle = theta+90;
+        pick_up_hp.setScale(0.8);
+        miel_number += 1;
     }
     for (theta = 0+0; theta<360+0; theta = theta + 140)
     {
-        var pick_up_hp = pick_up_hps.create(x_earth + (r_earth+10) * Math.cos(2*Math.PI*theta/360), y_earth + (r_earth+10) * Math.sin(2*Math.PI*theta/360), 'pick_up_hp');
+        var pick_up_hp = pick_up_hps.create(x_earth + (r_earth+30) * Math.cos(2*Math.PI*theta/360), y_earth + (r_earth+30) * Math.sin(2*Math.PI*theta/360), 'pick_up_hp');
+        pick_up_hp.angle = theta+90;
+        pick_up_hp.setScale(0.8);        
+        miel_number += 1;
     }
     for (theta = 0+90; theta<360+90; theta = theta + 120)
     {
-        var pick_up_hp = pick_up_hps.create(x_water + (r_water+10) * Math.cos(2*Math.PI*theta/360), y_water + (r_water+10) * Math.sin(2*Math.PI*theta/360), 'pick_up_hp');
+        var pick_up_hp = pick_up_hps.create(x_water + (r_water+30) * Math.cos(2*Math.PI*theta/360), y_water + (r_water+30) * Math.sin(2*Math.PI*theta/360), 'pick_up_hp');
+        pick_up_hp.angle = theta+90;
+        pick_up_hp.setScale(0.8);
+        miel_number += 1;
     }
+    
+    var arriere_jauge = this.add.image(70,500,'arriere_jauge').setScrollFactor(0);
+    arriere_jauge.setDepth(0.1);
+    var avant_jauge = this.add.image(70,500,'avant_jauge').setScrollFactor(0);
+    avant_jauge.setDepth(0.6);
+    miel = this.add.image(70,500,'miel').setScrollFactor(0);
+    miel.setDepth(0.5);
+    coulure_1 = this.add.image(70,425,'coulure_1').setScrollFactor(0);
+    coulure_1.setVisible(false);
+    coulure_1.setDepth(2);
+    coulure_2 = this.add.image(70,434,'coulure_2').setScrollFactor(0);
+    coulure_2.setVisible(false);
+    coulure_2.setDepth(3);
+    coulure_3 = this.add.image(70,450,'coulure_3').setScrollFactor(0);
+    coulure_3.setVisible(false);
+    coulure_3.setDepth(4);
     
     mars = planets.create(x_mars, y_mars, 'mars_planet');
     mars.setCircle(r_mars);
@@ -195,10 +276,16 @@ function create ()
     earth = planets.create(x_earth, y_earth, 'earth_planet');
     earth.setCircle(r_earth);
     
+    anneaux_avant = this.add.image(x_earth, y_earth+79, 'anneaux_avant');
+    //game.world.bringToTop(anneaux_avant);
+    //anneaux_avant.z = 1;
+    anneaux_avant.setDepth(1);
+    this.add.image(x_earth, y_earth-40, 'anneaux_arriere');
+    
     water = planets.create(x_water, y_water, 'water_planet');
     water.setCircle(r_water);
     
-    this.add.image(x_bh, y_bh, 'black_hole');
+    bh_image = this.add.image(x_bh, y_bh, 'black_hole');
     bh = planets.create(x_bh+180, y_bh+180, 'black_hole');
     bh.setVisible(false);
     bh.setCircle(r_bh);
@@ -213,11 +300,21 @@ function create ()
     player.setCollideWorldBounds(true);
     
     player.setCircle(player_radius);
+    
+    // The player and its settings
+    enemy = this.physics.add.sprite(x_0_enemy, y_0_enemy, 'cop');
+
+    //  Player physics properties.
+    enemy.setCollideWorldBounds(true);
+    enemy.setBounce(1,1);
+    
+    enemy.setCircle(enemy_radius);
+    enemy.setScale(0.5);
 
     //  Our player animations, turning, walking left and walking right.
     this.anims.create({
-        key: 'left',
-        frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 3 }),
+        key: 'dude_anim',
+        frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 11 }),
         frameRate: 10,
         repeat: -1
     });
@@ -229,16 +326,9 @@ function create ()
     });
 
     this.anims.create({
-        key: 'right',
-        frames: this.anims.generateFrameNumbers('dude', { start: 5, end: 8 }),
-        frameRate: 10,
-        repeat: -1
-    });
-
-    this.anims.create({
-        key: 'rotate',
-        frames: this.anims.generateFrameNumbers('dude', { start: 5, end: 8 }),
-        frameRate: 10,
+        key: 'cop_anim',
+        frames: this.anims.generateFrameNumbers('cop', { start: 0, end: 1 }),
+        frameRate: 2,
         repeat: -1
     });
     
@@ -246,17 +336,15 @@ function create ()
     cursors = this.input.keyboard.addKeys({ 'up': Phaser.Input.Keyboard.KeyCodes.Z, 'left': Phaser.Input.Keyboard.KeyCodes.Q, 'right': Phaser.Input.Keyboard.KeyCodes.D, 'down': Phaser.Input.Keyboard.KeyCodes.S,'gas': Phaser.Input.Keyboard.KeyCodes.SPACE, 'restart': Phaser.Input.Keyboard.KeyCodes.R, 'abandon': Phaser.Input.Keyboard.KeyCodes.A});
     
     // Indications diverses
-    helpText = this.add.text(500, 600, "C'est parti !", style).setScrollFactor(0);
-    deathText = this.add.text(400, 650, "", style).setScrollFactor(0);
+    helpText = this.add.text(390, 550, "C'est parti !", style).setScrollFactor(0);
+    deathText = this.add.text(370, 600, "", style).setScrollFactor(0);
     
     hpText = this.add.text(1100, 50, "Hp = 100", style).setScrollFactor(0);
 
-    //  Collide the player and the stars with the platforms
-    //this.physics.add.collider(player, earth, function(){move_mode = 'run'; on_land = true; on_planet = 'earth'; flames.setVisible(false)});
-    //this.physics.add.collider(player, mars, function(){move_mode = 'run'; on_land = true; on_planet = 'mars'; flames.setVisible(false)});
-    //this.physics.add.collider(player, water, function(){hp_reduction(); move_mode = 'run'; on_land = true; on_planet = 'water'; flames.setVisible(false)});
-    //this.physics.add.collider(player, water, function(){hp_player -= 10; move_mode = 'run'; on_land = true; on_planet = 'water'; flames.setVisible(false)});
-    //this.physics.add.collider(player, water, function(){move_mode = 'run'; on_land = true; on_planet = 'water'; flames.setVisible(false); helpText.setText("HP????"); if(Math.pow(Math.pow(vX_n0,2)+Math.pow(vY_n0,2),0.5) > 100){hp_player -= 10;}});
+    hpText.setDepth(2);
+    deathText.setDepth(2);
+    helpText.setDepth(2);
+    
     this.physics.add.overlap(player, bombs, bomb_collision, null, this);
     this.physics.add.overlap(player, pick_up_hps, hp_collision, null, this);
     this.physics.add.collider(player, earth, earth_collision);
@@ -264,11 +352,17 @@ function create ()
     this.physics.add.collider(player, water, water_collision);
     //this.physics.add.collider(player, bh, function(){hp_player = 0; helpText.setText("Ce trou noir vous a absorbé :O"); cd_helpText = 800});
     this.physics.add.collider(player, bh, bh_collision);
+    this.physics.add.collider(player, enemy, player_enemy_collision);
+    this.physics.add.collider(enemy, planets, function(){hp_enemy -= 10; play_sound0(1,1); if (hp_enemy <= 0){enemy.disableBody(true, true); play_sound0(2,2);}});
+    this.physics.add.collider(enemy, earth, function(){dodge_planet = 'earth';});
+    this.physics.add.collider(enemy, mars, function(){dodge_planet = 'mars';});
+    this.physics.add.collider(enemy, water, function(){dodge_planet = 'water';});
     
     // ********* SOUNDS *********
     
     //engine = this.add.audio('engine');
     engine = this.sound.add("engine", { loop: false });
+    enemy_hurt = this.sound.add("enemy_hurt", { loop: false });
     
     //this.sound.setDecodedCallback(engine, start, this);
     
@@ -284,8 +378,8 @@ function create ()
     
     // ********* GAMEPAD *********
     
-    var text = this.add.text(10, 10, 'Press a button on the Gamepad to use', { font: '16px Courier', fill: '#00ff00' }).setScrollFactor(0);;
-
+    //var text = this.add.text(10, 10, 'Press a button on the Gamepad to use', { font: '16px Courier', fill: '#00ff00' }).setScrollFactor(0);
+        
     this.input.gamepad.once('down', function (pad, button, index) {
         text.setText('Playing with ' + pad.id);
         gamepad = pad;
@@ -312,6 +406,9 @@ function create ()
         });
         debugText.setScrollFactor(0);
     }
+    
+    player.setScale(size_player);
+    flames.setScale(size_flames);
 }
 
 function update ()
@@ -323,9 +420,6 @@ function update ()
     gamepad?gamepadA=gamepad.A:gamepadA=false;
     gamepad?gamepadL=(gamepad.leftStick.x<-0.5?true:false):gamepadL=false;
     gamepad?gamepadR=(gamepad.leftStick.x>+0.5?true:false):gamepadR=false;
-    //if(gamepad){gamepadA = gamepad.A;}else{gamepadA =false;}
-    //if(gamepad){gamepadL = ();}else{gamepadA =false;}
-    //if(gamepad){gamepadA = gamepad.A;}else{gamepadA =false;}
     
     vX = player.body.velocity.x;
     vY = player.body.velocity.y;
@@ -337,7 +431,9 @@ function update ()
     
     iter += 0.0002;
     
-    if (hp_player <= 0){gameOver=true;}
+    bh_image.angle += 1;
+    
+    if (hp_player <= 0){gameOver=true; player.setVisible(true);}
     
     if (cursors.restart.isDown)// || gamepad.Start)
     {
@@ -353,20 +449,30 @@ function update ()
         this.scene.stop(); // restart current scene
     }
     
+    if (miel_number == 0)
+    {
+        this.physics.pause();
+        deathText.setText("Vous êtes un vrai p'tit voleur, bravo ! \n Relancer (r) ou arrêter (a) ?");
+        cd_helpText = 60000;
+    }
+    
     if (gameOver)
     {
         this.physics.pause();
         player.setTint(0x00f040);
         deathText.setText("Relancer (r) ou abandonner (a) ?");
         cd_helpText = 60000;
-        //flames.setVisible(false)
-        //player.destroy();
-        //return;
     }
     else
     {
         if (move_mode == 'fly')
         {
+            player.anims.play('dude_anim', true);
+            if (size_player < 1 && !sucked_by_bh)
+            {
+                size_player += 0.01;
+                player.setScale(size_player);
+            }
             // Le joueur est attiré par toutes les planètes
             x_acc = -attraction_mars*(player.x-x_mars)/Math.pow((Math.pow(player.x-x_mars,2)+Math.pow(player.y-y_mars,2)),1.5);
             x_acc += -attraction_earth*(player.x-x_earth)/Math.pow((Math.pow(player.x-x_earth,2)+Math.pow(player.y-y_earth,2)),1.5);
@@ -455,58 +561,6 @@ function update ()
                 }
             }
             
-            /*if (gamepad)
-            {
-                /*this.input.gamepad.button.children.each(function(butt){
-                        player.angle += 2.5;//console.log(butt);
-                },this);
-                
-                /*this.gamepad.on('down', (pad, button, value) =>{
-                    console.log(button.index);          
-                });
-                
-                if (gamepad.A)
-                {
-                    // Le moteur ne peut être utilisé que s'il n'est pas en surchauffe
-                    if (engine_heat < 80)
-                    {
-                        // On modifie l'accélération à chaque frame en fonction de sa direction de propulsion et de sa position par rapport
-                        // aux différents astres attracteurs et objets répulseurs en utilisant des forces de type (Constante/Distance^2)
-                        x_acc += propulsion * Math.cos(2*Math.PI*robot_angle/360);
-                        y_acc += - propulsion * Math.sin(2*Math.PI*robot_angle/360);
-                        // Le moteur se réchauffe lorsqu'il est utilisé, et il émet un son
-                        engine_heat += 1;
-                        flames.x = player.x - 75*Math.cos(2*Math.PI*player.angle/360);
-                        flames.y = player.y - 75*Math.sin(2*Math.PI*player.angle/360);
-                        flames.angle = player.angle - 90;
-                        flames.setVisible(true);
-                        engine.play();
-                    }
-                    else
-                    {
-                        helpText.setText("Moteur en surchauffe !");
-                        flames.setVisible(false);
-                        cd_helpText = 80;
-                    }
-                }
-                else
-                {
-                    // Le moteur se refroidit lorsqu'il n'est pas utilisé
-                    flames.setVisible(false);
-                    engine_heat = Math.max(0, engine_heat - engine_cooling);
-                }
-
-                /*if (gamepad.up)
-                {
-                    sprite.y -= 4;
-                }
-                else if (gamepad.down)
-                {
-                    sprite.y += 4;
-                }
-            }
-            else */
-            
             if (cursors.gas.isDown || gamepadA)
             {
                 // Le moteur ne peut être utilisé que s'il n'est pas en surchauffe
@@ -522,10 +576,17 @@ function update ()
                     flames.y = player.y - 75*Math.sin(2*Math.PI*player.angle/360);
                     flames.angle = player.angle - 90;
                     flames.setVisible(true);
-                    engine.play();
+                    play_sound(1,1);
+                    if (size_flames  <= 1)
+                    {
+                        size_flames += 0.05;
+                        flames.setScale(size_flames);
+                    }
                 }
                 else
                 {
+                    //size_flames = 0.2;
+                    //flames.setScale(size_flames);
                     helpText.setText("Moteur en surchauffe !");
                     flames.setVisible(false);
                     cd_helpText = 80;
@@ -536,6 +597,11 @@ function update ()
                 // Le moteur se refroidit lorsqu'il n'est pas utilisé
                 flames.setVisible(false);
                 engine_heat = Math.max(0, engine_heat - engine_cooling);
+                if (size_flames  > 0.2)
+                {
+                    size_flames -= 0.05;
+                    flames.setScale(size_flames);
+                }
             }
         }
         else if (move_mode == 'run')
@@ -591,7 +657,37 @@ function update ()
                 target_angle = 180 - 360*Math.atan(difY/difX)/(2*Math.PI);
             }
 
-            if (Math.abs(target_angle - robot_angle) > limit_angle)
+            if (Math.abs(target_angle - robot_angle) > limit_angle && size_player > 0.8)
+            {
+                size_player -= 0.01;
+                player.setScale(size_player);
+                if (((0 <= target_angle - robot_angle) && (target_angle - robot_angle < 180)) || target_angle - robot_angle < -180)
+                {
+                    //player.anims.play('right', true);
+                    robot_angle += 1.25;
+                    if (robot_angle >= 360)
+                    {
+                        robot_angle -= 360
+                    }
+                    player.angle -= 1.25;
+                }
+                else
+                {
+                    //player.anims.play('left', true);
+                    robot_angle -= 1.25;
+                    if (robot_angle < 0)
+                    {
+                        robot_angle += 360
+                    }
+                    player.angle += 1.25;
+                }
+            }
+            else if (size_player > 0.65)
+            {
+                size_player -= 0.01;
+                player.setScale(size_player);
+            }
+            else if (Math.abs(target_angle - robot_angle) > limit_angle)
             {
                 if (((0 <= target_angle - robot_angle) && (target_angle - robot_angle < 180)) || target_angle - robot_angle < -180)
                 {
@@ -617,18 +713,11 @@ function update ()
             else
             {
                 landing_done = true;
-                engine_heat = Math.max(0, engine_heat - 20);
+                engine_heat = Math.max(0, engine_heat - 40);
             }
 
             if ((cursors.left.isDown || gamepadL) && on_land && landing_done)
             {
-                /*if (on_obstacle)
-                {
-                    x_acc += 500*Math.cos(2*Math.PI*(player.angle-90)/360);
-                    y_acc += 500*Math.sin(2*Math.PI*(player.angle-90)/360);                    
-                }
-                else
-                {*/
                 x_acc += propulsion_factor_mode_1*propulsion*Math.cos(2*Math.PI*(player.angle-90)/360);
                 y_acc += propulsion_factor_mode_1*propulsion*Math.sin(2*Math.PI*(player.angle-90)/360);
 
@@ -641,8 +730,8 @@ function update ()
 
             if ((cursors.gas.isDown || gamepadA) && on_land && landing_done)
             {
-                x_acc += propulsion_factor_mode_1*propulsion*Math.cos(2*Math.PI*player.angle/360);
-                y_acc += propulsion_factor_mode_1*propulsion*Math.sin(2*Math.PI*player.angle/360);
+                x_acc += 1.8*propulsion_factor_mode_1*propulsion*Math.cos(2*Math.PI*player.angle/360);
+                y_acc += 1.8*propulsion_factor_mode_1*propulsion*Math.sin(2*Math.PI*player.angle/360);
                 on_land = false;
                 double_gas_ready = false;
             }
@@ -660,36 +749,95 @@ function update ()
                 target_angle = -player.angle;
             }
         }
-
+        
+        if (hp_player >= 100 && hp_player < 120)
+        {
+            coulure_1.setVisible(true);
+            coulure_2.setVisible(false);
+            coulure_3.setVisible(false);
+        }
+        else if (hp_player >= 120 && hp_player < 150)
+        {
+            coulure_1.setVisible(true);
+            coulure_2.setVisible(true);
+            coulure_3.setVisible(false);
+        }
+        else if (hp_player >= 150)
+        {
+            coulure_1.setVisible(true);
+            coulure_2.setVisible(true);
+            coulure_3.setVisible(true);
+        }
+        else
+        {
+            coulure_1.setVisible(false);
+            coulure_2.setVisible(false);
+            coulure_3.setVisible(false);
+        }
+        
+        if (hauteur_miel < Math.floor(Math.min(hp_player,100)/100))
+        {
+            hauteur_miel -= 0.01;            
+            miel.setScale(1,hauteur_miel);
+        }
+        else
+        {
+            hauteur_miel += 0.01;            
+            miel.setScale(1,hauteur_miel);
+        }
+        
+        /*// Gestion jauge
+        if (hp_player >= 100)
+        {
+            coulure_1.setVisible(true);
+            if (hp_player >= 120)
+            {
+                coulure_2.setVisible(true);
+                if (hp_player >= 150)
+                {
+                    coulure_3.setVisible(true);            
+                }
+                else
+                {
+                    coulure_3.setVisible(false);
+                }
+            }
+            else
+            {
+                coulure_2.setVisible(false);
+                coulure_3.setVisible(false);
+            }
+        }
+        else
+        {
+            coulure_1.setVisible(false);
+            coulure_2.setVisible(false);
+            coulure_3.setVisible(false);
+        }*/
+        
+        x_acc += bounce_acc_x;
+        y_acc += bounce_acc_y;
+        bounce_acc_x = 0;
+        bounce_acc_y = 0;
+        
         player.setAccelerationX(x_acc);
         player.setAccelerationY(y_acc);
-
-        /*
-        if (player.x >= config.height + player_radius)
-        {
-            player.x = 0;
-        }
-        else if (player.x <= 0 + player_radius)
-        {
-            player.x = config.height;
-        }
-
-        if (player.y >= config.width + player_radius)
-        {
-            player.y = 0;
-        }
-        else if (player.y <= 0 + player_radius)
-        {
-            player.y = config.width;
-        }
-        */
 
         if (cd_invulnerable == 0)
         {
             invulnerable = false;
+            player.setVisible(true);
         }
         else
         {
+            if (Math.floor(cd_invulnerable/7)%2 == 0)
+            {
+                player.setVisible(false);
+            }
+            else
+            {
+                player.setVisible(true);
+            }
             cd_invulnerable -= 1;
         }
         
@@ -727,11 +875,70 @@ function update ()
             }
         }
     }
+    
+    // Déplacement ennemi
+    
+    x_acc_enemy = +6*20000000*(enemy.x+4000)/Math.pow(Math.pow(enemy.x+4000,2),1.5);
+    y_acc_enemy = +6*20000000*(enemy.y+4000)/Math.pow(Math.pow(enemy.y+4000,2),1.5);
+    x_acc_enemy += +6*20000000*(enemy.x-4000)/Math.pow(Math.pow(enemy.x-4000,2),1.5);
+    y_acc_enemy += +6*20000000*(enemy.y-4000)/Math.pow(Math.pow(enemy.y-4000,2),1.5);
+    
+    if (timer_action_enemy >= cd_action_enemy)
+    {
+        timer_action_enemy =0;
+        if (dodge_planet == '')
+        {
+            x_acc_enemy += 40000*(player.x - enemy.x)/Math.pow(Math.pow(player.x - enemy.x,2)+Math.pow(player.y - enemy.y,2),0.5);
+            y_acc_enemy += 40000*(player.y - enemy.y)/Math.pow(Math.pow(player.x - enemy.x,2)+Math.pow(player.y - enemy.y,2),0.5);
+        }
+        else if (dodge_planet == 'mars')
+        {
+            // Calcul du signe de la composante en z du produit vectoriel entre le vecteur (enemy - planete à dodge) et le vecteur (enemy - player)
+            sign_to_dodge = Math.sign((x_mars - enemy.x)*(player.y - enemy.y) - (y_mars - enemy.y)*(player.x - enemy.x));
+            x_acc_enemy += -sign_to_dodge * 10000*(y_mars - enemy.y)/Math.pow(Math.pow(x_mars - enemy.x,2)+Math.pow(y_mars - enemy.y,2),0.5);
+            y_acc_enemy += sign_to_dodge * 10000*(x_mars - enemy.x)/Math.pow(Math.pow(x_mars - enemy.x,2)+Math.pow(y_mars - enemy.y,2),0.5);
+            dodge_planet = '';
+        }
+        else if (dodge_planet == 'earth')
+        {
+            // Calcul du signe de la composante en z du produit vectoriel entre le vecteur (enemy - planete à dodge) et le vecteur (enemy - player)
+            sign_to_dodge = Math.sign((x_earth - enemy.x)*(player.y - enemy.y) - (y_earth - enemy.y)*(player.x - enemy.x));
+            x_acc_enemy += -sign_to_dodge * 10000*(y_earth - enemy.y)/Math.pow(Math.pow(x_earth - enemy.x,2)+Math.pow(y_earth - enemy.y,2),0.5);
+            y_acc_enemy += sign_to_dodge * 10000*(x_earth - enemy.x)/Math.pow(Math.pow(x_earth - enemy.x,2)+Math.pow(y_earth - enemy.y,2),0.5);
+            dodge_planet = '';
+        }
+        else
+        {
+            // Calcul du signe de la composante en z du produit vectoriel entre le vecteur (enemy - planete à dodge) et le vecteur (enemy - player)
+            sign_to_dodge = Math.sign((x_water - enemy.x)*(player.y - enemy.y) - (y_water - enemy.y)*(player.x - enemy.x));
+            x_acc_enemy += -10000*(y_water - enemy.y)/Math.pow(Math.pow(x_water - enemy.x,2)+Math.pow(y_water - enemy.y,2),0.5);
+            y_acc_enemy += 10000*(x_water - enemy.x)/Math.pow(Math.pow(x_water - enemy.x,2)+Math.pow(y_water - enemy.y,2),0.5);
+            dodge_planet = '';
+        }
+    }
+    else
+    {
+        enemy.body.velocity.x *= 0.992;
+        enemy.body.velocity.y *= 0.992;
+        timer_action_enemy++;
+    }
+    
+    enemy.anims.play('cop_anim', true);
+    
+    enemy.setAngularVelocity(Math.sign(enemy.body.velocity.x)*Math.pow(Math.pow(enemy.body.velocity.x,2)+Math.pow(enemy.body.velocity.y,2),0.5));
+    
+    enemy.setAccelerationX(x_acc_enemy);
+    enemy.setAccelerationY(y_acc_enemy);
+    
+    vX_0 = enemy.body.velocity.x;
+    vY_0 = enemy.body.velocity.y;
+    
 }
 
 function hp_collision(player, pick_up_hp)
 {
     pick_up_hp.disableBody(true, true);
+    miel_number -= 1;
     hp_player += 20;
 }
     
@@ -887,19 +1094,64 @@ function water_collision()
 
 function bh_collision()
 {
+    if (!sucked_by_bh)
+    {
+        play_sound(2,0.3);
+    }
     sucked_by_bh = true;
+    player.angle += 8;
     if (size_player <= 0.01)
     {
         hp_player = 0;
         helpText.setText("Ce trou noir vous a absorbé :O");
+        play_sound(2,0.25);
         cd_helpText = 800;
     }
     else
     {
         size_player -= 0.01;
-        attraction_bh *= 0.9;
+        attraction_bh *= 0.99;
         player.setScale(size_player);
     }
+}
+
+function player_enemy_collision()
+{
+    landing_done = false;
+    move_mode = 'fly';
+    play_sound(1,2.6);
+    if (!invulnerable)
+    {
+        hp_player -= 20;
+        if (hp_player <= 0)
+        {
+            helpText.setText("Cette fois-ci, c'est la police qui gagne :(");
+            cd_helpText = 800;
+        }
+        invulnerable = true;
+        cd_invulnerable = 180;
+    }
+    bounce_acc_x = 50*vX_0;
+    bounce_acc_y = 50*vY_0;
+}
+
+function enemy_planets_collision()
+{
+    
+}
+    
+function play_sound(volume,rate)
+{
+    game.sound.volume = volume;
+    game.sound.setRate(rate);
+    engine.play();
+}
+
+function play_sound0(volume,rate)
+{
+    game.sound.volume = volume;
+    game.sound.setRate(rate);
+    enemy_hurt.play();
 }
 
 </script>
